@@ -9,7 +9,6 @@
 // @supportURL   https://github.com/Oreoxmt/octopus-github
 // @match        https://github.com/*/pulls*
 // @match        https://github.com/*/pull/*
-// @grant        none
 // @run-at       document-start
 // ==/UserScript==
 
@@ -68,6 +67,21 @@
             console.log('error on ', commentLink, error)
         })
     }
+
+    async function CreateTransPR() {
+        try {
+            const access_token = EnsureToken();
+            const target_repo_owner = "pingcap";
+            console.log('A good start')
+
+            // get the pr number
+            const url = window.location.pathname;
+            console.log(url)
+            //window.open('https://github.com/', '_blank');
+        } catch (error) {
+            console.error("An error occurred:", error);
+          }
+        }
 
     // TODO: Use toggle instead of button, and add more features to the toggle, e.g., editing tokens.
     function EnsureCommentButton() {
@@ -277,6 +291,37 @@
         });
       }
 
+      function EnsureCreateTransPRButtonOnPR() {
+        const MARK = 'create-trans-pr-button';
+
+        // Check if the button already exists
+        if (document.querySelector(`button[${ATTR}="${MARK}"]`)) {
+          return;
+        }
+
+        // Find the header actions container
+        var headerActions = document.querySelector(".gh-header-actions");
+
+        if (!headerActions) {
+          return;
+        }
+
+        // Create a button element
+        var button = document.createElement("button");
+        button.innerHTML = "Create Translation PR";
+        button.setAttribute(
+          "class",
+          "js-details-target js-title-edit-button flex-md-order-2 Button--secondary Button--small Button m-0 mr-md-0"
+        );
+        button.setAttribute(ATTR, MARK);
+        headerActions.appendChild(button);
+
+        // Add event listener to the button
+        button.addEventListener("click", function () {
+          // Call the function to create translation PR
+          CreateTransPR();
+        });
+      }
 
     function Init() {
 
@@ -299,9 +344,11 @@
             EnsureScrollToTopButton();
             EnsureScrollToBottomButton();
             EnsureCommentButtonOnPR();
+            EnsureCreateTransPRButtonOnPR()
 
             const observer = new MutationObserver(() => {
                 EnsureCommentButtonOnPR();
+                EnsureCreateTransPRButtonOnPR()
             });
             const targetNode = document.body;
             const observerOptions = { childList: true, subtree: true };
@@ -311,3 +358,4 @@
 
     Init();
 })();
+
