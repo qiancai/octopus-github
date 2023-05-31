@@ -278,6 +278,25 @@
         });
       }
 
+    async function get_my_github_id() {
+        try {
+            const userURL = 'https://api.github.com/user';
+            const response = await fetch(userURL, {
+                headers: {'Authorization': `Bearer ${EnsureToken()}`,},
+            });
+
+            if (response.ok) {
+                const userData = await response.json();
+                return userData.login;
+            } else {
+                throw new Error('Failed to fetch current user login.');
+            }
+        } catch (error) {
+            console.error('An error occurred:', error);
+            throw error;
+        }
+    }
+
     function get_pr_info(octokit, pr_url) {
         return new Promise((resolve, reject) => {
             const url_parts = pr_url.split('/');
@@ -351,9 +370,11 @@
         try {
             const source_pr_url = 'https://github.com/pingcap/docs-cn/pull/14089'
             const target_repo_owner = "pingcap";
+            const my_repo_owner = await get_my_github_id();
+            console.log(my_repo_owner);
             //const [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number] = await get_pr_info(octokit, source_pr_url);
             //await sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch);
-            await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'release-5.3');
+            //await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'release-5.3');
         } catch (error) {
             console.error("An error occurred:", error);
         }
