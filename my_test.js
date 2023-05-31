@@ -387,11 +387,33 @@
             console.log(`A new branch is created successfully. The branch address is: ${branchUrl}`);
 
         } catch (error) {
-            console.log("Failed to create the branch");
+            console.log("Failed to create the branch.");
             console.error(error);
             throw error;
         }
     }
+
+    async function create_file_in_branch(octokit, repoOwner, repoName, branchName, filePath, fileContent, commitMessage) {
+        try {
+            const contentBase64 = btoa(fileContent);
+            const response = await octokit.repos.createFile({
+                owner: repoOwner,
+                repo: repoName,
+                branch: branchName,
+                path: filePath,
+                message: commitMessage,
+                content: contentBase64,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            console.log('A temp file is created successfully!');
+
+        } catch (error) {
+            console.log('Failed to create the temp file.');
+            console.error(error);
+        }
+    }
+
 
     async function test(octokit) {
         try {
@@ -401,11 +423,17 @@
             //console.log(my_repo_owner);
             //const [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number] = await get_pr_info(octokit, source_pr_url);
             //await sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch);
-            await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
+            //await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
             // Step 3. Create a new branch in the repository that I forked
             //const new_branch_name = `${head_branch}-${pr_number}`;
             //await create_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, base_branch);
-            await create_branch(octokit, 'qiancai', 'docs', 'test060128', 'master');
+            //await create_branch(octokit, 'qiancai', 'docs', 'test060128', 'master');
+                  // Step 4. Create a temporary temp.md file in the new branch
+            const file_path = "temp.md";
+            const file_content = "This is a test file.";
+            const commit_message = "Add temp.md";
+            //await create_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, file_content, commit_message);
+            await create_file_in_branch(octokit, 'qiancai', 'docs', 'test060128', file_path, file_content, commit_message);
         } catch (error) {
             console.error("An error occurred:", error);
         }
