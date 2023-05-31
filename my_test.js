@@ -353,9 +353,7 @@
                  ref: `heads/${base_branch}`,
                  sha: upstream_sha,
                  force: true,
-                 headers: {
-                     'Authorization': `Bearer ${EnsureToken()}`,
-                 },
+                 headers: {'Authorization': `Bearer ${EnsureToken()}`}
              });
 
              console.log("The content sync is successful!");
@@ -366,15 +364,48 @@
          }
     };
 
+    async function create_branch(octokit, repoOwner, repoName, branchName, baseBranch) {
+        try {
+            const baseRef = await octokit.gitdata.getReference({
+                owner: repoOwner,
+                repo: repoName,
+                ref: `heads/${baseBranch}`
+            });
+
+            const baseSha = baseRef.data.object.sha;
+            console.log(baseSha);
+
+            await octokit.gitdata.createReference({
+                owner: repoOwner,
+                repo: repoName,
+                ref: `refs/heads/${branchName}`,
+                sha: baseSha,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            const branchUrl = `https://github.com/${repoOwner}/${repoName}/tree/${branchName}`;
+            console.log(`A new branch is created successfully. The branch address is: ${branchUrl}`);
+
+        } catch (error) {
+            console.log("Failed to create the branch");
+            console.error(error);
+            throw error;
+        }
+    }
+
     async function test(octokit) {
         try {
             const source_pr_url = 'https://github.com/pingcap/docs-cn/pull/14089'
             const target_repo_owner = "pingcap";
-            const my_repo_owner = await get_my_github_id();
-            console.log(my_repo_owner);
+            //const my_repo_owner = await get_my_github_id();
+            //console.log(my_repo_owner);
             //const [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number] = await get_pr_info(octokit, source_pr_url);
             //await sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch);
-            //await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'release-5.3');
+            await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
+            // Step 3. Create a new branch in the repository that I forked
+            //const new_branch_name = `${head_branch}-${pr_number}`;
+            //await create_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, base_branch);
+            await create_branch(octokit, 'qiancai', 'docs', 'test060128', 'master');
         } catch (error) {
             console.error("An error occurred:", error);
         }
