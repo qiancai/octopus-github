@@ -68,6 +68,43 @@
         })
     }
 
+    function get_pr_info(octokit, pr_url) {
+        return new Promise((resolve, reject) => {
+            const url_parts = pr_url.split('/');
+            const source_repo_owner = url_parts[3];
+            const source_repo_name = url_parts[4];
+            const pr_number = url_parts[6];
+
+            octokit.pullRequests.get({
+                owner: source_repo_owner,
+                repo: source_repo_name,
+                number: pr_number,
+            })
+                .then(response => {
+                const pr_data = response.data;
+
+                const source_title = pr_data.title;
+                const source_description = pr_data.body;
+                const exclude_labels = ["size", "translation", "status", "first-time-contributor", "contribution"];
+                const source_labels = pr_data.labels
+                .filter(label => !exclude_labels.some(exclude_label => label.name.includes(exclude_label)))
+                .map(label => label.name);
+                const base_repo = pr_data.base.repo.full_name;
+                const base_branch = pr_data.base.ref;
+                const head_repo = pr_data.head.repo.full_name;
+                const head_branch = pr_data.head.ref;
+
+                console.log(`Getting source language PR information was successful. The head branch name is: ${head_branch}`);
+
+                const result = [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number];
+                resolve(result);
+            })
+                .catch(error => {
+                console.log(`Failed to get source language PR information: ${error.message}`);
+                reject(error);
+            });
+        });
+    }
     async function CreateTransPR() {
         try {
             const access_token = EnsureToken();
