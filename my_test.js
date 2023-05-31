@@ -414,26 +414,109 @@
         }
     }
 
+    // For changing the description of the translation PR
+    function update_pr_description(source_pr_url, source_description,base_repo, target_repo_name) {
+        const source_pr_CLA = "https://cla-assistant.io/pingcap/" + base_repo;
+        const new_pr_CLA = "https://cla-assistant.io/pingcap/" + target_repo_name;
+        let new_pr_description = source_description.replace(source_pr_CLA, new_pr_CLA);
+
+        new_pr_description = new_pr_description.replace("This PR is translated from:", "This PR is translated from: " + source_pr_url);
+
+        if (source_description.includes("tips for choosing the affected versions")) {
+            new_pr_description = new_pr_description.replace(/.*?\[tips for choosing the affected version.*?\n\n?/, "");
+        }
+
+        return new_pr_description;
+    }
+    async function create_pull_request(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels) {
+        try {
+            const prResponse = await octokit.pullRequests.create({
+                owner: targetRepoOwner,
+                repo: targetRepoName,
+                title: title,
+                body: body,
+                head: `${myRepoOwner}:${newBranchName}`,
+                base: baseBranch,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            console.log('Pull Request created successfully!');
+            console.log(prResponse);
+            const prUrl = prResponse.data.html_url;
+            console.log(`Your target PR is created successfully. The PR address is: ${prUrl}`);
+            const urlParts = prUrl.split("/");
+            const prNumber = urlParts[6];
+
+            // Add labels to the created PR
+            const labelsResponse = await octokit.issues.addLabels({
+                owner: targetRepoOwner,
+                repo: targetRepoName,
+                issue_number: prNumber,
+                labels: labels,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            console.log('Labels are added successfully.');
+
+/*             if (labelsResponse.status === 200) {
+                console.log('Labels are added successfully.');
+            } else {
+                console.log('Failed to add labels.');
+            }
+            } else {
+                console.log('Failed to create the target PR:', prResponse.statusText);
+                throw new Error('Failed to create the target PR: ' + prResponse.statusText);
+            } */
+        } catch (error) {
+            console.log('Failed to create the target PR.');
+            console.error(error);
+        }
+    }
+
 
     async function test(octokit) {
         try {
-            const source_pr_url = 'https://github.com/pingcap/docs-cn/pull/14089'
+            const source_pr_url = 'https://github.com/pingcap/docs-cn/pull/14086'
             const target_repo_owner = "pingcap";
-            //const my_repo_owner = await get_my_github_id();
+
+            let my_repo_name, target_repo_name, translation_label;
+
+            if (source_pr_url.includes("pingcap/docs-cn/pull")) {
+                my_repo_name = "docs";
+                target_repo_name = "docs";
+                translation_label = "translation/from-docs-cn";
+            } else if (source_pr_url.includes("pingcap/docs/pull")) {
+                target_repo_name = "docs-cn";
+                my_repo_name = "docs-cn";
+                translation_label = "translation/from-docs";
+            } else {
+                console.log("The provided URL is not a pull request of pingcap/docs-cn or pingcap/docs.");
+                console.log("Exiting the program...");
+                return;
+            }
+
+            const my_repo_owner = await get_my_github_id();
             //console.log(my_repo_owner);
-            //const [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number] = await get_pr_info(octokit, source_pr_url);
-            //await sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch);
+            const [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number] = await get_pr_info(octokit, source_pr_url);
+            await sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch);
             //await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
-            // Step 3. Create a new branch in the repository that I forked
-            //const new_branch_name = `${head_branch}-${pr_number}`;
-            //await create_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, base_branch);
+                  // Step 3. Create a new branch in the repository that I forked
+            const new_branch_name = `${head_branch}-${pr_number}`;
+            await create_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, base_branch);
             //await create_branch(octokit, 'qiancai', 'docs', 'test060128', 'master');
                   // Step 4. Create a temporary temp.md file in the new branch
             const file_path = "temp.md";
             const file_content = "This is a test file.";
             const commit_message = "Add temp.md";
-            //await create_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, file_content, commit_message);
-            await create_file_in_branch(octokit, 'qiancai', 'docs', 'test060128', file_path, file_content, commit_message);
+            await create_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, file_content, commit_message);
+            //await create_file_in_branch(octokit, 'qiancai', 'docs', 'test060128', file_path, file_content, commit_message);
+                  // Step 5. Create a pull request
+            const title = source_title;
+            //const body = update_pr_description(source_pr_url, source_description, base_repo, target_repo_name);
+            const body = update_pr_description(source_pr_url, source_description, base_repo, 'docs');
+            const labels = source_labels;
+            //await create_pull_request(octokit, target_repo_owner, target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
+            await create_pull_request(octokit, 'qiancai', target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
         } catch (error) {
             console.error("An error occurred:", error);
         }
