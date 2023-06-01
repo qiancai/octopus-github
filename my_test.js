@@ -428,6 +428,7 @@
 
         return new_pr_description;
     }
+
     async function create_pull_request(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels) {
         try {
             const prResponse = await octokit.pullRequests.create({
@@ -451,7 +452,7 @@
             const labelsResponse = await octokit.issues.addLabels({
                 owner: targetRepoOwner,
                 repo: targetRepoName,
-                issue_number: prNumber,
+                number: prNumber,
                 labels: labels,
                 headers: {'Authorization': `Bearer ${EnsureToken()}`}
             });
@@ -473,10 +474,36 @@
         }
     }
 
+    async function delete_file_in_branch(octokit, repoOwner, repoName, branchName, filePath, commitMessage) {
+        try {
+            const { data: fileInfo } = await octokit.repos.getContent({
+                owner: repoOwner,
+                repo: repoName,
+                path: filePath,
+                ref: branchName
+            });
+
+            await octokit.repos.deleteFile({
+                owner: repoOwner,
+                repo: repoName,
+                path: filePath,
+                message: commitMessage,
+                sha: fileInfo.sha,
+                branch: branchName,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            console.log("The temp.md is deleted successfully!");
+        } catch (error) {
+            console.log(`Failed to delete temp.md. Error message: ${error.message}`);
+            throw error;
+        }
+    }
+
 
     async function test(octokit) {
         try {
-            const source_pr_url = 'https://github.com/pingcap/docs-cn/pull/14086'
+            const source_pr_url = 'https://github.com/pingcap/docs-cn/pull/13817'
             const target_repo_owner = "pingcap";
 
             let my_repo_name, target_repo_name, translation_label;
@@ -499,24 +526,28 @@
             //console.log(my_repo_owner);
             const [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number] = await get_pr_info(octokit, source_pr_url);
             await sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch);
-            //await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
+            //#await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
                   // Step 3. Create a new branch in the repository that I forked
             const new_branch_name = `${head_branch}-${pr_number}`;
             await create_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, base_branch);
-            //await create_branch(octokit, 'qiancai', 'docs', 'test060128', 'master');
+            //#await create_branch(octokit, 'qiancai', 'docs', 'test060128', 'master');
                   // Step 4. Create a temporary temp.md file in the new branch
             const file_path = "temp.md";
             const file_content = "This is a test file.";
             const commit_message = "Add temp.md";
             await create_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, file_content, commit_message);
-            //await create_file_in_branch(octokit, 'qiancai', 'docs', 'test060128', file_path, file_content, commit_message);
+            //#await create_file_in_branch(octokit, 'qiancai', 'docs', 'test060128', file_path, file_content, commit_message);
                   // Step 5. Create a pull request
             const title = source_title;
-            //const body = update_pr_description(source_pr_url, source_description, base_repo, target_repo_name);
-            const body = update_pr_description(source_pr_url, source_description, base_repo, 'docs');
+            const body = update_pr_description(source_pr_url, source_description, base_repo, target_repo_name);
+            //#const body = update_pr_description(source_pr_url, source_description, base_repo, 'docs');
             const labels = source_labels;
-            //await create_pull_request(octokit, target_repo_owner, target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
             await create_pull_request(octokit, 'qiancai', target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
+            //#await create_pull_request(octokit, target_repo_owner, target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
+                  // Step 6. Delete the temporary temp.md file
+            const commit_message2 = "Delete temp.md";
+            await delete_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, commit_message2);
+            //#await delete_file_in_branch(octokit, 'qiancai', 'docs', 'tidb-roadmap-13942', file_path, commit_message2);
         } catch (error) {
             console.error("An error occurred:", error);
         }
