@@ -10,6 +10,7 @@
 // @match        https://github.com/*/pulls*
 // @match        https://github.com/*/pull/*
 // @run-at       document-start
+// @require      https://cdnjs.cloudflare.com/ajax/libs/rest.js/15.2.6/octokit-rest.js
 // ==/UserScript==
 
 (function () {
@@ -68,19 +69,285 @@
         })
     }
 
+    async function get_my_github_id() {
+        try {
+            const userURL = 'https://api.github.com/user';
+            const response = await fetch(userURL, {
+                headers: {'Authorization': `Bearer ${EnsureToken()}`,},
+            });
+
+            if (response.ok) {
+                const userData = await response.json();
+                return userData.login;
+            } else {
+                throw new Error('Failed to fetch current user login.');
+            }
+        } catch (error) {
+            console.error('An error occurred:', error);
+            throw error;
+        }
+    }
+
+    function get_pr_info(octokit, pr_url) {
+        return new Promise((resolve, reject) => {
+            const url_parts = pr_url.split('/');
+            const source_repo_owner = url_parts[3];
+            const source_repo_name = url_parts[4];
+            const pr_number = url_parts[6];
+
+            octokit.pullRequests.get({
+                owner: source_repo_owner,
+                repo: source_repo_name,
+                number: pr_number,
+            })
+                .then(response => {
+                const pr_data = response.data;
+
+                const source_title = pr_data.title;
+                const source_description = pr_data.body;
+                const exclude_labels = ["size", "translation", "status", "first-time-contributor", "contribution"];
+                const source_labels = pr_data.labels
+                .filter(label => !exclude_labels.some(exclude_label => label.name.includes(exclude_label)))
+                .map(label => label.name);
+                const base_repo = pr_data.base.repo.full_name;
+                const base_branch = pr_data.base.ref;
+                const head_repo = pr_data.head.repo.full_name;
+                const head_branch = pr_data.head.ref;
+
+                console.log(`Getting source language PR information was successful. The head branch name is: ${head_branch}`);
+
+                const result = [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number];
+                resolve(result);
+            })
+                .catch(error => {
+                console.log(`Failed to get source language PR information: ${error.message}`);
+                reject(error);
+            });
+        });
+    }
+
+     async function sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch) {
+         try {
+             const upstreamRef = await octokit.gitdata.getReference({
+                 owner: target_repo_owner,
+                 repo: target_repo_name,
+                 ref: `heads/${base_branch}`
+             });
+
+             const upstream_sha = upstreamRef.data.object.sha;
+             console.log(upstream_sha);
+
+             console.log("Syncing the latest content from the upstream branch...");
+             await octokit.gitdata.updateReference({
+                 owner: my_repo_owner,
+                 repo: my_repo_name,
+                 ref: `heads/${base_branch}`,
+                 sha: upstream_sha,
+                 force: true,
+                 headers: {'Authorization': `Bearer ${EnsureToken()}`}
+             });
+
+             console.log("The content sync is successful!");
+         } catch (error) {
+             console.log("Failed to sync the latest content from the upstream branch.");
+             console.log(error);
+             throw error;
+         }
+    };
+
+    async function create_branch(octokit, repoOwner, repoName, branchName, baseBranch) {
+        try {
+            const baseRef = await octokit.gitdata.getReference({
+                owner: repoOwner,
+                repo: repoName,
+                ref: `heads/${baseBranch}`
+            });
+
+            const baseSha = baseRef.data.object.sha;
+            console.log(baseSha);
+
+            await octokit.gitdata.createReference({
+                owner: repoOwner,
+                repo: repoName,
+                ref: `refs/heads/${branchName}`,
+                sha: baseSha,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            const branchUrl = `https://github.com/${repoOwner}/${repoName}/tree/${branchName}`;
+            console.log(`A new branch is created successfully. The branch address is: ${branchUrl}`);
+
+        } catch (error) {
+            console.log("Failed to create the branch.");
+            console.error(error);
+            throw error;
+        }
+    }
+
+    async function create_file_in_branch(octokit, repoOwner, repoName, branchName, filePath, fileContent, commitMessage) {
+        try {
+            const contentBase64 = btoa(fileContent);
+            const response = await octokit.repos.createFile({
+                owner: repoOwner,
+                repo: repoName,
+                branch: branchName,
+                path: filePath,
+                message: commitMessage,
+                content: contentBase64,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            console.log('A temp file is created successfully!');
+
+        } catch (error) {
+            console.log('Failed to create the temp file.');
+            console.error(error);
+        }
+    }
+
+    // For changing the description of the translation PR
+    function update_pr_description(source_pr_url, source_description,base_repo, target_repo_name) {
+        const source_pr_CLA = "https://cla-assistant.io/pingcap/" + base_repo;
+        const new_pr_CLA = "https://cla-assistant.io/pingcap/" + target_repo_name;
+        let new_pr_description = source_description.replace(source_pr_CLA, new_pr_CLA);
+
+        new_pr_description = new_pr_description.replace("This PR is translated from:", "This PR is translated from: " + source_pr_url);
+
+        if (source_description.includes("tips for choosing the affected versions")) {
+            new_pr_description = new_pr_description.replace(/.*?\[tips for choosing the affected version.*?\n\n?/, "");
+        }
+
+        return new_pr_description;
+    }
+
+    async function create_pull_request(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels) {
+        try {
+            const prResponse = await octokit.pullRequests.create({
+                owner: targetRepoOwner,
+                repo: targetRepoName,
+                title: title,
+                body: body,
+                head: `${myRepoOwner}:${newBranchName}`,
+                base: baseBranch,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            console.log('Pull Request created successfully!');
+            console.log(prResponse);
+            const prUrl = prResponse.data.html_url;
+            console.log(`Your target PR is created successfully. The PR address is: ${prUrl}`);
+            const urlParts = prUrl.split("/");
+            const prNumber = urlParts[6];
+
+            // Add labels to the created PR
+            const labelsResponse = await octokit.issues.addLabels({
+                owner: targetRepoOwner,
+                repo: targetRepoName,
+                number: prNumber,
+                labels: labels,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            console.log('Labels are added successfully.');
+            return prUrl;
+
+/*             if (labelsResponse.status === 200) {
+                console.log('Labels are added successfully.');
+            } else {
+                console.log('Failed to add labels.');
+            }
+            } else {
+                console.log('Failed to create the target PR:', prResponse.statusText);
+                throw new Error('Failed to create the target PR: ' + prResponse.statusText);
+            } */
+        } catch (error) {
+            console.log('Failed to create the target PR.');
+            console.error(error);
+        }
+    }
+
+    async function delete_file_in_branch(octokit, repoOwner, repoName, branchName, filePath, commitMessage) {
+        try {
+            const { data: fileInfo } = await octokit.repos.getContent({
+                owner: repoOwner,
+                repo: repoName,
+                path: filePath,
+                ref: branchName
+            });
+
+            await octokit.repos.deleteFile({
+                owner: repoOwner,
+                repo: repoName,
+                path: filePath,
+                message: commitMessage,
+                sha: fileInfo.sha,
+                branch: branchName,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            console.log("The temp.md is deleted successfully!");
+        } catch (error) {
+            console.log(`Failed to delete temp.md. Error message: ${error.message}`);
+            throw error;
+        }
+    }
+
     async function CreateTransPR() {
         try {
+            console.log('A good start');
+            var dialog = window.prompt("Creating PR...");
+            const octokit = new Octokit({ auth: EnsureToken() });
+            console.log(octokit);
+            const source_pr_url = window.location.href;
             const target_repo_owner = "pingcap";
-            console.log('A good start')
 
-            // get the pr number
-            //const url = window.location.pathname;
-            //console.log(url)
-            window.open('https://github.com/', '_blank');
+            let my_repo_name, target_repo_name, translation_label;
+
+            if (source_pr_url.includes("pingcap/docs-cn/pull")) {
+                my_repo_name = "docs";
+                target_repo_name = "docs";
+                translation_label = "translation/from-docs-cn";
+            } else if (source_pr_url.includes("pingcap/docs/pull")) {
+                target_repo_name = "docs-cn";
+                my_repo_name = "docs-cn";
+                translation_label = "translation/from-docs";
+            } else {
+                console.log("The provided URL is not a pull request of pingcap/docs-cn or pingcap/docs.");
+                console.log("Exiting the program...");
+                return;
+            }
+            const my_repo_owner = await get_my_github_id();
+            //console.log(my_repo_owner);
+            const [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number] = await get_pr_info(octokit, source_pr_url);
+            await sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch);
+            //#await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
+                  // Step 3. Create a new branch in the repository that I forked
+            const new_branch_name = `test-${head_branch}-${pr_number}`;
+            await create_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, base_branch);
+            //#await create_branch(octokit, 'qiancai', 'docs', 'test060128', 'master');
+                  // Step 4. Create a temporary temp.md file in the new branch
+            const file_path = "temp.md";
+            const file_content = "This is a test file.";
+            const commit_message = "Add temp.md";
+            await create_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, file_content, commit_message);
+            //#await create_file_in_branch(octokit, 'qiancai', 'docs', 'test060128', file_path, file_content, commit_message);
+                  // Step 5. Create a pull request
+            const title = source_title;
+            //@const body = update_pr_description(source_pr_url, source_description, base_repo, target_repo_name);
+            const body = "This is test PR.";
+            const labels = source_labels;
+            const target_pr_url = await create_pull_request(octokit, 'qiancai', target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
+            //#await create_pull_request(octokit, target_repo_owner, target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
+                  // Step 6. Delete the temporary temp.md file
+            const commit_message2 = "Delete temp.md";
+            await delete_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, commit_message2);
+            //#await delete_file_in_branch(octokit, 'qiancai', 'docs', 'tidb-roadmap-13942', file_path, commit_message2);
+            dialog.value = (`Your target PR is created successfully. The PR address is: ${target_pr_url}`);
         } catch (error) {
             console.error("An error occurred:", error);
-          }
+            return error;
         }
+    }
 
     // TODO: Use toggle instead of button, and add more features to the toggle, e.g., editing tokens.
     function EnsureCommentButton() {
@@ -318,6 +585,7 @@
         // Add event listener to the button
         button.addEventListener("click", function () {
           // Call the function to create translation PR
+          EnsureToken();
           CreateTransPR();
         });
       }
