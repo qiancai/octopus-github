@@ -76,7 +76,7 @@
             // get the pr number
             //const url = window.location.pathname;
             //console.log(url)
-            //window.open('https://github.com/', '_blank');
+            window.open('https://github.com/', '_blank');
         } catch (error) {
             console.error("An error occurred:", error);
           }
@@ -310,7 +310,7 @@
         button.innerHTML = "Create Translation PR";
         button.setAttribute(
           "class",
-          "js-details-target js-title-edit-button flex-md-order-2 Button--secondary Button--small Button m-0 mr-md-0"
+          "flex-md-order-2 Button--secondary Button--small Button m-0 mr-md-0"
         );
         button.setAttribute(ATTR, MARK);
         headerActions.appendChild(button);
@@ -338,29 +338,31 @@
             observer.observe(document, config);
         }
 
-        // If we are on the PR details page, add the scroll to top and bottom buttons
-        if (url.includes('/pull/')) {
+
+        // If we are on the PR details page of pingcap/docs-cn or pingcap/docs, add the buttons
+        if (url.includes('pingcap/docs-cn/pull') || url.includes('pingcap/docs/pull')) {
+            console.log("right-repo2")
+            EnsureCreateTransPRButtonOnPR();
+            EnsureScrollToTopButton();
+            EnsureScrollToBottomButton();
+            EnsureCommentButtonOnPR();
+
+
+            const observer = new MutationObserver(() => {
+                EnsureCommentButtonOnPR();
+                EnsureCreateTransPRButtonOnPR()
+            });
+            const targetNode = document.body;
+            const observerOptions = { childList: true, subtree: true };
+            observer.observe(targetNode, observerOptions);
+            // If we are on the PR details page of other repos, add the scroll to top and bottom buttons
+       } else if (url.includes('/pull/')) {
             EnsureScrollToTopButton();
             EnsureScrollToBottomButton();
             EnsureCommentButtonOnPR();
 
             const observer = new MutationObserver(() => {
                 EnsureCommentButtonOnPR();
-            });
-            const targetNode = document.body;
-            const observerOptions = { childList: true, subtree: true };
-            observer.observe(targetNode, observerOptions);
-        }
-
-        console.log(url)
-
-        // If we are on the docs-cn or docs PR details page, add the TransPRButtonOnPR button
-        if (url.includes('pingcap/docs-cn/pull') || url.includes('pingcap/docs-cn/pull')) {
-            console.log("right-repo")
-            EnsureCreateTransPRButtonOnPR();
-
-            const observer = new MutationObserver(() => {
-                EnsureCreateTransPRButtonOnPR()
             });
             const targetNode = document.body;
             const observerOptions = { childList: true, subtree: true };
