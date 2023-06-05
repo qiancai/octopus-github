@@ -367,28 +367,28 @@
             //#await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
                   // Step 3. Create a new branch in the repository that I forked
             const new_branch_name = `test-${head_branch}-${pr_number}`;
-            //@await create_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, base_branch);
+            await create_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, base_branch);
             //#await create_branch(octokit, 'qiancai', 'docs', 'test060128', 'master');
                   // Step 4. Create a temporary temp.md file in the new branch
             const file_path = "temp.md";
             const file_content = "This is a test file.";
             const commit_message = "Add temp.md";
-            //@await create_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, file_content, commit_message);
+            await create_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, file_content, commit_message);
             //#await create_file_in_branch(octokit, 'qiancai', 'docs', 'test060128', file_path, file_content, commit_message);
                   // Step 5. Create a pull request
             const title = source_title;
-            //@const body = update_pr_description(source_pr_url, source_description, base_repo, target_repo_name);
-            const body = "This is test PR.";
+            const body = update_pr_description(source_pr_url, source_description, base_repo, target_repo_name);
+            //#const body = "This is test PR.";
             const labels = source_labels;
-            //@const target_pr_url = await create_pull_request(octokit, 'qiancai', target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
-            //#await create_pull_request(octokit, target_repo_owner, target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
+            const target_pr_url = await create_pull_request(octokit, target_repo_owner, target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
+            //@await target_pr_url = create_pull_request(octokit, target_repo_owner, target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
                   // Step 6. Delete the temporary temp.md file
             const commit_message2 = "Delete temp.md";
-            //@await delete_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, commit_message2);
+            await delete_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, commit_message2);
             //#await delete_file_in_branch(octokit, 'qiancai', 'docs', 'tidb-roadmap-13942', file_path, commit_message2);
 
             // Update message text after function 3 execution
-            messageTextElement.innerHTML = `Your target PR is created successfully. <br> The PR address is:<br> <a href="${source_pr_url}" target="_blank">${source_pr_url}</a>`;
+            messageTextElement.innerHTML = `Your target PR is created successfully. <br> The PR address is:<br> <a href="${target_pr_url}" target="_blank">${target_pr_url}</a>`;
             //messageTextElement.innerHTML = `Your target PR is created successfully. <br> The PR address is:<br> ${source_pr_url}`;
         } catch (error) {
             console.error("An error occurred:", error);
