@@ -69,7 +69,8 @@
         })
     }
 
-    async function get_my_github_id() {
+    // This function can be used to get the GitHub login name of the current user
+    async function GetMyGitHubID() {
         try {
             const userURL = 'https://api.github.com/user';
             const response = await fetch(userURL, {
@@ -80,7 +81,7 @@
                 const userData = await response.json();
                 return userData.login;
             } else {
-                throw new Error('Failed to fetch current user login.');
+                throw new Error('Failed to fetch current user login name.');
             }
         } catch (error) {
             console.error('An error occurred:', error);
@@ -88,35 +89,35 @@
         }
     }
 
-    function get_pr_info(octokit, pr_url) {
+    function GetPRInfo(octokit, URL) {
         return new Promise((resolve, reject) => {
-            const url_parts = pr_url.split('/');
-            const source_repo_owner = url_parts[3];
-            const source_repo_name = url_parts[4];
-            const pr_number = url_parts[6];
+            const URLParts = URL.split('/');
+            const sourceRepoOwner = URLParts[3];
+            const sourceRepoName = URLParts[4];
+            const PRNumber = URLParts[6];
 
             octokit.pullRequests.get({
-                owner: source_repo_owner,
-                repo: source_repo_name,
-                number: pr_number,
+                owner: sourceRepoOwner,
+                repo: sourceRepoName,
+                number: PRNumber,
             })
                 .then(response => {
-                const pr_data = response.data;
+                const PRData = response.data;
 
-                const source_title = pr_data.title;
-                const source_description = pr_data.body;
-                const exclude_labels = ["size", "translation", "status", "first-time-contributor", "contribution"];
-                const source_labels = pr_data.labels
-                .filter(label => !exclude_labels.some(exclude_label => label.name.includes(exclude_label)))
+                const sourceTitle = PRData.title;
+                const SourceDescription = PRData.body;
+                const excludeLabels = ["size", "translation", "status", "first-time-contributor", "contribution"];
+                const sourceLabels = PRData.labels
+                .filter(label => !excludeLabels.some(excludeLabel => label.name.includes(excludeLabel)))
                 .map(label => label.name);
-                const base_repo = pr_data.base.repo.full_name;
-                const base_branch = pr_data.base.ref;
-                const head_repo = pr_data.head.repo.full_name;
-                const head_branch = pr_data.head.ref;
+                const BaseRepo = PRData.base.repo.full_name;
+                const baseBranch = PRData.base.ref;
+                const headRepo = PRData.head.repo.full_name;
+                const headBranch = PRData.head.ref;
 
-                console.log(`Getting source language PR information was successful. The head branch name is: ${head_branch}`);
+                console.log(`Getting source language PR information was successful. The head branch name is: ${headBranch}`);
 
-                const result = [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number];
+                const result = [sourceTitle, SourceDescription, sourceLabels, BaseRepo, baseBranch, headRepo, headBranch, PRNumber];
                 resolve(result);
             })
                 .catch(error => {
@@ -126,23 +127,23 @@
         });
     }
 
-     async function sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch) {
+     async function SyncMyRepoBranch(octokit, targetRepoOwner, targetRepoName, myRepoOwner, myRepoName, baseBranch) {
          try {
              const upstreamRef = await octokit.gitdata.getReference({
-                 owner: target_repo_owner,
-                 repo: target_repo_name,
-                 ref: `heads/${base_branch}`
+                 owner: targetRepoOwner,
+                 repo: targetRepoName,
+                 ref: `heads/${baseBranch}`
              });
 
-             const upstream_sha = upstreamRef.data.object.sha;
-             console.log(upstream_sha);
+             const upstreamSHA = upstreamRef.data.object.sha;
+             console.log(upstreamSHA);
 
              console.log("Syncing the latest content from the upstream branch...");
              await octokit.gitdata.updateReference({
-                 owner: my_repo_owner,
-                 repo: my_repo_name,
-                 ref: `heads/${base_branch}`,
-                 sha: upstream_sha,
+                 owner: myRepoOwner,
+                 repo: myRepoName,
+                 ref: `heads/${baseBranch}`,
+                 sha: upstreamSHA,
                  force: true,
                  headers: {'Authorization': `Bearer ${EnsureToken()}`}
              });
@@ -155,7 +156,7 @@
          }
     };
 
-    async function create_branch(octokit, repoOwner, repoName, branchName, baseBranch) {
+    async function CreateBranch(octokit, repoOwner, repoName, branchName, baseBranch) {
         try {
             const baseRef = await octokit.gitdata.getReference({
                 owner: repoOwner,
@@ -184,7 +185,7 @@
         }
     }
 
-    async function create_file_in_branch(octokit, repoOwner, repoName, branchName, filePath, fileContent, commitMessage) {
+    async function CreateFileInBranch(octokit, repoOwner, repoName, branchName, filePath, fileContent, commitMessage) {
         try {
             const contentBase64 = btoa(fileContent);
             const response = await octokit.repos.createFile({
@@ -206,21 +207,21 @@
     }
 
     // For changing the description of the translation PR
-    function update_pr_description(source_pr_url, source_description,base_repo, target_repo_name) {
-        const source_pr_CLA = "https://cla-assistant.io/pingcap/" + base_repo;
-        const new_pr_CLA = "https://cla-assistant.io/pingcap/" + target_repo_name;
-        let new_pr_description = source_description.replace(source_pr_CLA, new_pr_CLA);
+    function  UpdatePRDescription(SourcePRURL, SourceDescription,BaseRepo, targetRepoName) {
+        const sourcePRCLA = "https://cla-assistant.io/pingcap/" + BaseRepo;
+        const newPRCLA = "https://cla-assistant.io/pingcap/" + targetRepoName;
+        let newPRDescription = SourceDescription.replace(sourcePRCLA, newPRCLA);
 
-        new_pr_description = new_pr_description.replace("This PR is translated from:", "This PR is translated from: " + source_pr_url);
+        newPRDescription = newPRDescription.replace("This PR is translated from:", "This PR is translated from: " + SourcePRURL);
 
-        if (source_description.includes("tips for choosing the affected versions")) {
-            new_pr_description = new_pr_description.replace(/.*?\[tips for choosing the affected version.*?\n\n?/, "");
+        if (SourceDescription.includes("tips for choosing the affected versions")) {
+            newPRDescription = newPRDescription.replace(/.*?\[tips for choosing the affected version.*?\n\n?/, "");
         }
 
-        return new_pr_description;
+        return newPRDescription;
     }
 
-    async function create_pull_request(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels) {
+    async function  CreatePullRequest(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels) {
         try {
             const prResponse = await octokit.pullRequests.create({
                 owner: targetRepoOwner,
@@ -266,7 +267,7 @@
         }
     }
 
-    async function delete_file_in_branch(octokit, repoOwner, repoName, branchName, filePath, commitMessage) {
+    async function DeleteFileInBranch(octokit, repoOwner, repoName, branchName, filePath, commitMessage) {
         try {
             const { data: fileInfo } = await octokit.repos.getContent({
                 owner: repoOwner,
@@ -342,54 +343,54 @@
 
             const octokit = new Octokit({ auth: EnsureToken() });
             console.log(octokit);
-            const source_pr_url = window.location.href;
-            const target_repo_owner = "pingcap";
+            const SourcePRURL = window.location.href;
+            const targetRepoOwner = "pingcap";
 
-            let my_repo_name, target_repo_name, translation_label;
+            let myRepoName, targetRepoName, translationLabel;
 
-            if (source_pr_url.includes("pingcap/docs-cn/pull")) {
-                my_repo_name = "docs";
-                target_repo_name = "docs";
-                translation_label = "translation/from-docs-cn";
-            } else if (source_pr_url.includes("pingcap/docs/pull")) {
-                target_repo_name = "docs-cn";
-                my_repo_name = "docs-cn";
-                translation_label = "translation/from-docs";
+            if (SourcePRURL.includes("pingcap/docs-cn/pull")) {
+                myRepoName = "docs";
+                targetRepoName = "docs";
+                translationLabel = "translation/from-docs-cn";
+            } else if (SourcePRURL.includes("pingcap/docs/pull")) {
+                targetRepoName = "docs-cn";
+                myRepoName = "docs-cn";
+                translationLabel = "translation/from-docs";
             } else {
                 console.log("The provided URL is not a pull request of pingcap/docs-cn or pingcap/docs.");
                 console.log("Exiting the program...");
                 return;
             }
-            const my_repo_owner = await get_my_github_id();
-            //console.log(my_repo_owner);
-            const [source_title, source_description, source_labels, base_repo, base_branch, head_repo, head_branch, pr_number] = await get_pr_info(octokit, source_pr_url);
-            await sync_my_repo_branch(octokit, target_repo_owner, target_repo_name, my_repo_owner, my_repo_name, base_branch);
-            //#await sync_my_repo_branch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
+            const myRepoOwner = await GetMyGitHubID();
+            //console.log(myRepoOwner);
+            const [sourceTitle, SourceDescription, sourceLabels, BaseRepo, baseBranch, headRepo, headBranch, PRNumber] = await GetPRInfo(octokit, SourcePRURL);
+            await SyncMyRepoBranch(octokit, targetRepoOwner, targetRepoName, myRepoOwner, myRepoName, baseBranch);
+            //#await SyncMyRepoBranch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
                   // Step 3. Create a new branch in the repository that I forked
-            const new_branch_name = `test-${head_branch}-${pr_number}`;
-            await create_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, base_branch);
-            //#await create_branch(octokit, 'qiancai', 'docs', 'test060128', 'master');
+            const newBranchName = `test-${headBranch}-${PRNumber}`;
+            await CreateBranch(octokit, myRepoOwner, myRepoName, newBranchName, baseBranch);
+            //#await CreateBranch(octokit, 'qiancai', 'docs', 'test060128', 'master');
                   // Step 4. Create a temporary temp.md file in the new branch
-            const file_path = "temp.md";
-            const file_content = "This is a test file.";
-            const commit_message = "Add temp.md";
-            await create_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, file_content, commit_message);
-            //#await create_file_in_branch(octokit, 'qiancai', 'docs', 'test060128', file_path, file_content, commit_message);
+            const filePath = "temp.md";
+            const FileContent = "This is a test file.";
+            const CommitMessage = "Add temp.md";
+            await CreateFileInBranch(octokit, myRepoOwner, myRepoName, newBranchName, filePath, FileContent, CommitMessage);
+            //#await CreateFileInBranch(octokit, 'qiancai', 'docs', 'test060128', filePath, FileContent, CommitMessage);
                   // Step 5. Create a pull request
-            const title = source_title;
-            const body = update_pr_description(source_pr_url, source_description, base_repo, target_repo_name);
+            const title = sourceTitle;
+            const body =  UpdatePRDescription(SourcePRURL, SourceDescription, BaseRepo, targetRepoName);
             //#const body = "This is test PR.";
-            const labels = source_labels;
-            const target_pr_url = await create_pull_request(octokit, target_repo_owner, target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
-            //@await target_pr_url = create_pull_request(octokit, target_repo_owner, target_repo_name, base_branch, my_repo_owner, my_repo_name, new_branch_name, title, body, labels);
+            const labels = sourceLabels;
+            const targetPRURL = await  CreatePullRequest(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels);
+            //@await targetPRURL =  CreatePullRequest(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels);
                   // Step 6. Delete the temporary temp.md file
-            const commit_message2 = "Delete temp.md";
-            await delete_file_in_branch(octokit, my_repo_owner, my_repo_name, new_branch_name, file_path, commit_message2);
-            //#await delete_file_in_branch(octokit, 'qiancai', 'docs', 'tidb-roadmap-13942', file_path, commit_message2);
+            const CommitMessage2 = "Delete temp.md";
+            await DeleteFileInBranch(octokit, myRepoOwner, myRepoName, newBranchName, filePath, CommitMessage2);
+            //#await DeleteFileInBranch(octokit, 'qiancai', 'docs', 'tidb-roadmap-13942', filePath, CommitMessage2);
 
             // Update message text after function 3 execution
-            messageTextElement.innerHTML = `Your target PR is created successfully. <br> The PR address is:<br> <a href="${target_pr_url}" target="_blank">${target_pr_url}</a>`;
-            //messageTextElement.innerHTML = `Your target PR is created successfully. <br> The PR address is:<br> ${source_pr_url}`;
+            messageTextElement.innerHTML = `Your target PR is created successfully. <br> The PR address is:<br> <a href="${targetPRURL}" target="_blank">${targetPRURL}</a>`;
+            //messageTextElement.innerHTML = `Your target PR is created successfully. <br> The PR address is:<br> ${SourcePRURL}`;
         } catch (error) {
             console.error("An error occurred:", error);
             return error;
