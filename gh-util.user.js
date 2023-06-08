@@ -89,6 +89,7 @@
         }
     }
 
+    // This function can be used to get the PR title, description, label, base, and head information.
     function GetPRInfo(octokit, messageTextElement, URL) {
         return new Promise((resolve, reject) => {
             const URLParts = URL.split('/');
@@ -115,19 +116,20 @@
                 const headRepo = PRData.head.repo.full_name;
                 const headBranch = PRData.head.ref;
 
-                messageTextElement.innerHTML = messageTextElement.innerHTML + `[Log]: Getting the source language PR information...<br>`;
+                messageTextElement.innerHTML += `[Log]: Getting the source language PR information...<br>`;
                 console.log(`Getting source language PR information was successful. The head branch name is: ${headBranch}`);
 
                 const result = [sourceTitle, SourceDescription, sourceLabels, BaseRepo, baseBranch, headRepo, headBranch, PRNumber];
                 resolve(result);
             })
                 .catch(error => {
-                messageTextElement.innerHTML = messageTextElement.innerHTML `<br>[Error]: Failed to get the source language PR information: ${error.message}`;
+                messageTextElement.innerHTML += `<br>[Error]: Failed to get the source language PR information: ${error.message}`;
                 reject(error);
             });
         });
     }
 
+    // This function can be used to sync the latest content from the upstream branch to your own branch.
      async function SyncMyRepoBranch(octokit, messageTextElement, targetRepoOwner, targetRepoName, myRepoOwner, myRepoName, baseBranch) {
          try {
              const upstreamRef = await octokit.gitdata.getReference({
@@ -139,7 +141,7 @@
              const upstreamSHA = upstreamRef.data.object.sha;
              console.log(upstreamSHA);
 
-             messageTextElement.innerHTML = messageTextElement.innerHTML + `[Log]: Syncing the latest content from the upstream branch...<br>`;
+             messageTextElement.innerHTML += `[Log]: Syncing the latest content from the upstream branch...<br>`;
              await octokit.gitdata.updateReference({
                  owner: myRepoOwner,
                  repo: myRepoName,
@@ -150,12 +152,13 @@
              });
              console.log("The content sync is successful!");
          } catch (error) {
-             messageTextElement.innerHTML = messageTextElement.innerHTML + `<br>[Error]: Failed to sync the latest content from the upstream branch to your branch. Please check whether you have forked the ${targetRepoOwner}/${targetRepoName} repo with all its branches.<br>`;
+             messageTextElement.innerHTML += `<br>[Error]: Failed to sync the latest content from the upstream branch to your branch. Please check whether you have forked the ${targetRepoOwner}/${targetRepoName} repo with all its branches.<br>`;
              console.log(error);
              throw error;
          }
     };
 
+    // This function can be used to create a new branch in your repo.
     async function CreateBranch(octokit, messageTextElement, repoOwner, repoName, branchName, baseBranch) {
         try {
             const baseRef = await octokit.gitdata.getReference({
@@ -167,7 +170,7 @@
             const baseSha = baseRef.data.object.sha;
             console.log(baseSha);
 
-            messageTextElement.innerHTML = messageTextElement.innerHTML + `[Log]: Creating a branch for the translation PR...<br>`;
+            messageTextElement.innerHTML += `[Log]: Creating a branch for the translation PR...<br>`;
             await octokit.gitdata.createReference({
                 owner: repoOwner,
                 repo: repoName,
@@ -185,13 +188,14 @@
             console.log(targetBranchUrl)
             fetch(targetBranchUrl, { method: 'HEAD' })
               .then(response => {
-                messageTextElement.innerHTML = response.ok ? messageTextElement.innerHTML + `<br>[Error]: Failed to create the branch for the translation PR. <br> The target branch <a href="${targetBranchUrl}" target="_blank">${branchName}</a> already exists in your <a href="${branchesUrl}" target="_blank">repo</a>. You need to manually create the translation PR with a different branch name.` : messageTextElement.innerHTML + `<br>[Error]: Failed to create the branch for the translation PR:<br> ${error.message}`;
+                messageTextElement.innerHTML += response.ok ? `<br>[Error]: Failed to create the branch for the translation PR. <br> The target branch <a href="${targetBranchUrl}" target="_blank">${branchName}</a> already exists in your <a href="${branchesUrl}" target="_blank">repo</a>. You need to manually create a new translation PR with a different branch name.` : `<br>[Error]: Failed to create the branch for the translation PR:<br> ${error.message}`;
               });
             console.error(error);
             throw error;
         }
     }
 
+    // This function can be used to create a temp file in your specified branch.
     async function CreateFileInBranch(octokit, messageTextElement, repoOwner, repoName, branchName, filePath, fileContent, commitMessage) {
         try {
             const contentBase64 = btoa(fileContent);
@@ -209,12 +213,12 @@
 
         } catch (error) {
             //console.log('Failed to create the temp file.');
-            messageTextElement.innerHTML = messageTextElement.innerHTML + `<br>[Error]: Failed to create a temp file in the new branch: ${error.message}<br>`;
+            messageTextElement.innerHTML += `<br>[Error]: Failed to create a temp file in the new branch: ${error.message}<br>`;
             console.error(error);
         }
     }
 
-    // For changing the description of the translation PR
+    // This function can be used to modify the description of the translation PR
     function UpdatePRDescription(SourcePRURL, SourceDescription,BaseRepo, targetRepoName) {
         const sourcePRCLA = "https://cla-assistant.io/pingcap/" + BaseRepo;
         const newPRCLA = "https://cla-assistant.io/pingcap/" + targetRepoName;
@@ -229,9 +233,10 @@
         return newPRDescription;
     }
 
+    // This function can be used to create a pull request based on your specified branch.
     async function CreatePullRequest(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels) {
         try {
-            messageTextElement.innerHTML = messageTextElement.innerHTML + `[Log]: Creating the empty translation PR...<br>`;
+            messageTextElement.innerHTML += `[Log]: Creating the empty translation PR...<br>`;
             const prResponse = await octokit.pullRequests.create({
                 owner: targetRepoOwner,
                 repo: targetRepoName,
@@ -246,7 +251,7 @@
                 console.log(prResponse);
                 const prUrl = prResponse.data.html_url;
                 //console.log(`Your target PR is created successfully. The PR address is: ${prUrl}`);
-                messageTextElement.innerHTML = messageTextElement.innerHTML + `<br> Your target PR is created successfully. <br> The PR address is:<br> <a href="${prUrl}" target="_blank">${prUrl}</a>`;
+                messageTextElement.innerHTML += `<br> Your target PR is created successfully. <br> The PR address is:<br> <a href="${prUrl}" target="_blank">${prUrl}</a>`;
                 const urlParts = prUrl.split("/");
                 const prNumber = urlParts[6];
 
@@ -269,7 +274,7 @@
 
         } catch (error) {
             console.log('Failed to create the translation PR.');
-            messageTextElement.innerHTML = messageTextElement.innerHTML + `<br>[Error]: Failed to create the translation PR: ${error.message}<br>`;
+            messageTextElement.innerHTML += `<br>[Error]: Failed to create the translation PR: ${error.message}<br>`;
             console.error(error);
         }
     }
@@ -302,8 +307,6 @@
 
     async function CreateTransPR() {
         try {
-
-            // Create a message box element
             const messageBox = document.createElement("div");
             messageBox.style.position = "fixed";
             messageBox.style.top = "50%";
@@ -320,7 +323,6 @@
             messageBox.style.marginTop = "10px";
             document.body.appendChild(messageBox);
 
-            // Create the message text element
             const messageTextElement = document.createElement("span");
             messageTextElement.innerHTML = `Start creating an empty translation PR for you.<br>Wait for a few seconds....<br><br>`;
             messageTextElement.style.fontSize = "14px";
@@ -328,7 +330,6 @@
             messageTextElement.style.marginBottom = "10px";
             messageBox.appendChild(messageTextElement);
 
-            // Create the close button
             const closeButton = document.createElement("span");
             closeButton.innerText = "X";
             closeButton.style.position = "absolute";
@@ -366,28 +367,30 @@
                 translationLabel = "translation/from-docs";
             }
 
+            //1.Get the GitHub login name of the current user
             const myRepoOwner = await GetMyGitHubID();
+            //2.Get the source PR information
             const [sourceTitle, SourceDescription, sourceLabels, BaseRepo, baseBranch, headRepo, headBranch, PRNumber] = await GetPRInfo(octokit, messageTextElement, SourcePRURL);
             await SyncMyRepoBranch(octokit, messageTextElement, targetRepoOwner, targetRepoName, myRepoOwner, myRepoName, baseBranch);
             //#await SyncMyRepoBranch(octokit, messageTextElement, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
-                  // Step 3. Create a new branch in the repository that I forked
+            //3.Create a new branch in the repository that I forked
             const newBranchName = `${headBranch}-${PRNumber}`;
             await CreateBranch(octokit, messageTextElement, myRepoOwner, myRepoName, newBranchName, baseBranch);
             //#await CreateBranch(octokit, messageTextElement, 'qiancai', 'docs', 'test060128', 'master');
-                  // Step 4. Create a temporary temp.md file in the new branch
+            //4. Create a temporary temp.md file in the new branch
             const filePath = "temp.md";
             const FileContent = "This is a test file.";
             const CommitMessage = "Add temp.md";
             await CreateFileInBranch(octokit, messageTextElement, myRepoOwner, myRepoName, newBranchName, filePath, FileContent, CommitMessage);
             //#await CreateFileInBranch(octokit, messageTextElement, 'qiancai', 'docs', 'test060128', filePath, FileContent, CommitMessage);
-                  // Step 5. Create a pull request
+            // 5. Create a pull request
             const title = sourceTitle;
             const body = UpdatePRDescription(SourcePRURL, SourceDescription, BaseRepo, targetRepoName);
             //#const body = "This is test PR.";
             const labels = sourceLabels;
             const targetPRURL = await CreatePullRequest(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels);
             //@const targetPRURL = await CreatePullRequest(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels);
-                  // Step 6. Delete the temporary temp.md file
+            // 6. Delete the temporary temp.md file
             const CommitMessage2 = "Delete temp.md";
             await DeleteFileInBranch(octokit, myRepoOwner, myRepoName, newBranchName, filePath, CommitMessage2);
             //#await DeleteFileInBranch(octokit, 'qiancai', 'docs', 'tidb-roadmap-13942', filePath, CommitMessage2);
