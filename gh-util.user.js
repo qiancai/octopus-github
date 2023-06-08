@@ -89,7 +89,7 @@
         }
     }
 
-    function GetPRInfo(octokit, URL) {
+    function GetPRInfo(octokit, messageTextElement, URL) {
         return new Promise((resolve, reject) => {
             const URLParts = URL.split('/');
             const sourceRepoOwner = URLParts[3];
@@ -115,19 +115,20 @@
                 const headRepo = PRData.head.repo.full_name;
                 const headBranch = PRData.head.ref;
 
+                messageTextElement.innerHTML = messageTextElement.innerHTML + "· Getting the source language PR information...<br>";
                 console.log(`Getting source language PR information was successful. The head branch name is: ${headBranch}`);
 
                 const result = [sourceTitle, SourceDescription, sourceLabels, BaseRepo, baseBranch, headRepo, headBranch, PRNumber];
                 resolve(result);
             })
                 .catch(error => {
-                console.log(`Failed to get source language PR information: ${error.message}`);
+                messageTextElement.innerHTML = `Failed to get the source language PR information: ${error.message}`;
                 reject(error);
             });
         });
     }
 
-     async function SyncMyRepoBranch(octokit, targetRepoOwner, targetRepoName, myRepoOwner, myRepoName, baseBranch) {
+     async function SyncMyRepoBranch(octokit, messageTextElement, targetRepoOwner, targetRepoName, myRepoOwner, myRepoName, baseBranch) {
          try {
              const upstreamRef = await octokit.gitdata.getReference({
                  owner: targetRepoOwner,
@@ -138,7 +139,7 @@
              const upstreamSHA = upstreamRef.data.object.sha;
              console.log(upstreamSHA);
 
-             console.log("Syncing the latest content from the upstream branch...");
+             messageTextElement.innerHTML = messageTextElement.innerHTML + "· Syncing the latest content from the upstream branch...<br>";
              await octokit.gitdata.updateReference({
                  owner: myRepoOwner,
                  repo: myRepoName,
@@ -147,16 +148,15 @@
                  force: true,
                  headers: {'Authorization': `Bearer ${EnsureToken()}`}
              });
-
              console.log("The content sync is successful!");
          } catch (error) {
-             console.log("Failed to sync the latest content from the upstream branch.");
+             messageTextElement.innerHTML = messageTextElement.innerHTML + "Failed to sync the latest content from the upstream branch. Please check whether you have forked the ${targetRepoOwner}/${targetRepoName} repo with all its branches.<br>";
              console.log(error);
              throw error;
          }
     };
 
-    async function CreateBranch(octokit, repoOwner, repoName, branchName, baseBranch) {
+    async function CreateBranch(octokit, messageTextElement, repoOwner, repoName, branchName, baseBranch) {
         try {
             const baseRef = await octokit.gitdata.getReference({
                 owner: repoOwner,
@@ -167,6 +167,7 @@
             const baseSha = baseRef.data.object.sha;
             console.log(baseSha);
 
+            messageTextElement.innerHTML = messageTextElement.innerHTML + "· Creating a branch for the translation PR...<br>";
             await octokit.gitdata.createReference({
                 owner: repoOwner,
                 repo: repoName,
@@ -179,13 +180,14 @@
             console.log(`A new branch is created successfully. The branch address is: ${branchUrl}`);
 
         } catch (error) {
-            console.log("Failed to create the branch.");
+            const branchesUrl = `https://github.com/${repoOwner}/${repoName}/branches`;
+            messageTextElement.innerHTML = messageTextElement.innerHTML + `<br>[Error]: Failed to create the branch. <br> Please check whether the <b>${branchName}</b> already exists in your repo: <br> <a href="${branchesUrl}" target="_blank">${branchesUrl}</a><br>If yes, you need to manually create the translation PR.`;
             console.error(error);
             throw error;
         }
     }
 
-    async function CreateFileInBranch(octokit, repoOwner, repoName, branchName, filePath, fileContent, commitMessage) {
+    async function CreateFileInBranch(octokit, messageTextElement, repoOwner, repoName, branchName, filePath, fileContent, commitMessage) {
         try {
             const contentBase64 = btoa(fileContent);
             const response = await octokit.repos.createFile({
@@ -201,13 +203,14 @@
             console.log('A temp file is created successfully!');
 
         } catch (error) {
-            console.log('Failed to create the temp file.');
+            //console.log('Failed to create the temp file.');
+            messageTextElement.innerHTML = messageTextElement.innerHTML + "Failed to create a temp file in the new branch.<br>";
             console.error(error);
         }
     }
 
     // For changing the description of the translation PR
-    function  UpdatePRDescription(SourcePRURL, SourceDescription,BaseRepo, targetRepoName) {
+    function UpdatePRDescription(SourcePRURL, SourceDescription,BaseRepo, targetRepoName) {
         const sourcePRCLA = "https://cla-assistant.io/pingcap/" + BaseRepo;
         const newPRCLA = "https://cla-assistant.io/pingcap/" + targetRepoName;
         let newPRDescription = SourceDescription.replace(sourcePRCLA, newPRCLA);
@@ -221,8 +224,9 @@
         return newPRDescription;
     }
 
-    async function  CreatePullRequest(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels) {
+    async function CreatePullRequest(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels) {
         try {
+            messageTextElement.innerHTML = messageTextElement.innerHTML + "· Creating the empty translation PR...<br>";
             const prResponse = await octokit.pullRequests.create({
                 owner: targetRepoOwner,
                 repo: targetRepoName,
@@ -234,35 +238,35 @@
             });
 
             console.log('Pull Request created successfully!');
-            console.log(prResponse);
-            const prUrl = prResponse.data.html_url;
-            console.log(`Your target PR is created successfully. The PR address is: ${prUrl}`);
-            const urlParts = prUrl.split("/");
-            const prNumber = urlParts[6];
 
-            // Add labels to the created PR
-            const labelsResponse = await octokit.issues.addLabels({
-                owner: targetRepoOwner,
-                repo: targetRepoName,
-                number: prNumber,
-                labels: labels,
-                headers: {'Authorization': `Bearer ${EnsureToken()}`}
-            });
+            try {
+                console.log(prResponse);
+                const prUrl = prResponse.data.html_url;
+                //console.log(`Your target PR is created successfully. The PR address is: ${prUrl}`);
+                messageTextElement.innerHTML = messageTextElement.innerHTML + `<br> Your target PR is created successfully. <br> The PR address is:<br> <a href="${prUrl}" target="_blank">${prUrl}</a>`;
+                const urlParts = prUrl.split("/");
+                const prNumber = urlParts[6];
 
-            console.log('Labels are added successfully.');
-            return prUrl;
+                // Add labels to the created PR
+                const labelsResponse = await octokit.issues.addLabels({
+                    owner: targetRepoOwner,
+                    repo: targetRepoName,
+                    number: prNumber,
+                    labels: labels,
+                    headers: {'Authorization': `Bearer ${EnsureToken()}`}
+                });
 
-/*             if (labelsResponse.status === 200) {
                 console.log('Labels are added successfully.');
-            } else {
-                console.log('Failed to add labels.');
+                return prUrl;
+
+            } catch (error) {
+                console.log('Failed to add the PR labels.');
+                console.error(error);
             }
-            } else {
-                console.log('Failed to create the target PR:', prResponse.statusText);
-                throw new Error('Failed to create the target PR: ' + prResponse.statusText);
-            } */
+
         } catch (error) {
-            console.log('Failed to create the target PR.');
+            console.log('Failed to create the translation PR.');
+            messageTextElement.innerHTML = messageTextElement.innerHTML + "Failed to create the translation PR.<br>";
             console.error(error);
         }
     }
@@ -308,12 +312,14 @@
             messageBox.style.borderRadius = "6px";
             messageBox.style.boxShadow = "0 0 10px rgba(0, 0, 0, 0.1)";
             messageBox.style.zIndex = "9999";
-            messageBox.style.width = "400px";
+            messageBox.style.width = "430px";
+            messageBox.style.height = "300px";
+            messageBox.style.marginTop = "10px";
             document.body.appendChild(messageBox);
 
             // Create the message text element
             const messageTextElement = document.createElement("span");
-            messageTextElement.innerHTML = "Start creating an empty translation PR for you. <br> Wait for a few seconds....";
+            messageTextElement.innerHTML = "Start creating an empty translation PR for you.<br>Wait for a few seconds....<br><br>";
             messageTextElement.style.fontSize = "14px";
             messageTextElement.style.color = "#24292e";
             messageTextElement.style.marginBottom = "10px";
@@ -340,7 +346,6 @@
             // Show the message box
             messageBox.style.display = "block";
 
-
             const octokit = new Octokit({ auth: EnsureToken() });
             console.log(octokit);
             const SourcePRURL = window.location.href;
@@ -356,41 +361,35 @@
                 targetRepoName = "docs-cn";
                 myRepoName = "docs-cn";
                 translationLabel = "translation/from-docs";
-            } else {
-                console.log("The provided URL is not a pull request of pingcap/docs-cn or pingcap/docs.");
-                console.log("Exiting the program...");
-                return;
             }
+
             const myRepoOwner = await GetMyGitHubID();
             //console.log(myRepoOwner);
-            const [sourceTitle, SourceDescription, sourceLabels, BaseRepo, baseBranch, headRepo, headBranch, PRNumber] = await GetPRInfo(octokit, SourcePRURL);
-            await SyncMyRepoBranch(octokit, targetRepoOwner, targetRepoName, myRepoOwner, myRepoName, baseBranch);
-            //#await SyncMyRepoBranch(octokit, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
+            const [sourceTitle, SourceDescription, sourceLabels, BaseRepo, baseBranch, headRepo, headBranch, PRNumber] = await GetPRInfo(octokit, messageTextElement, SourcePRURL);
+            await SyncMyRepoBranch(octokit, messageTextElement, targetRepoOwner, targetRepoName, myRepoOwner, myRepoName, baseBranch);
+            //#await SyncMyRepoBranch(octokit, messageTextElement, 'pingcap', 'docs', 'qiancai', 'docs', 'master');
                   // Step 3. Create a new branch in the repository that I forked
             const newBranchName = `test-${headBranch}-${PRNumber}`;
-            await CreateBranch(octokit, myRepoOwner, myRepoName, newBranchName, baseBranch);
-            //#await CreateBranch(octokit, 'qiancai', 'docs', 'test060128', 'master');
+            await CreateBranch(octokit, messageTextElement, myRepoOwner, myRepoName, newBranchName, baseBranch);
+            //#await CreateBranch(octokit, messageTextElement, 'qiancai', 'docs', 'test060128', 'master');
                   // Step 4. Create a temporary temp.md file in the new branch
             const filePath = "temp.md";
             const FileContent = "This is a test file.";
             const CommitMessage = "Add temp.md";
-            await CreateFileInBranch(octokit, myRepoOwner, myRepoName, newBranchName, filePath, FileContent, CommitMessage);
-            //#await CreateFileInBranch(octokit, 'qiancai', 'docs', 'test060128', filePath, FileContent, CommitMessage);
+            await CreateFileInBranch(octokit, messageTextElement, myRepoOwner, myRepoName, newBranchName, filePath, FileContent, CommitMessage);
+            //#await CreateFileInBranch(octokit, messageTextElement, 'qiancai', 'docs', 'test060128', filePath, FileContent, CommitMessage);
                   // Step 5. Create a pull request
             const title = sourceTitle;
-            const body =  UpdatePRDescription(SourcePRURL, SourceDescription, BaseRepo, targetRepoName);
-            //#const body = "This is test PR.";
+            //@const body =  UpdatePRDescription(SourcePRURL, SourceDescription, BaseRepo, targetRepoName);
+            const body = "This is test PR.";
             const labels = sourceLabels;
-            const targetPRURL = await  CreatePullRequest(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels);
-            //@await targetPRURL =  CreatePullRequest(octokit, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels);
+            const targetPRURL = await CreatePullRequest(octokit, messageTextElement, "qiancai", targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels);
+            //@const targetPRURL = await CreatePullRequest(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, myRepoOwner, myRepoName, newBranchName, title, body, labels);
                   // Step 6. Delete the temporary temp.md file
             const CommitMessage2 = "Delete temp.md";
             await DeleteFileInBranch(octokit, myRepoOwner, myRepoName, newBranchName, filePath, CommitMessage2);
             //#await DeleteFileInBranch(octokit, 'qiancai', 'docs', 'tidb-roadmap-13942', filePath, CommitMessage2);
 
-            // Update message text after function 3 execution
-            messageTextElement.innerHTML = `Your target PR is created successfully. <br> The PR address is:<br> <a href="${targetPRURL}" target="_blank">${targetPRURL}</a>`;
-            //messageTextElement.innerHTML = `Your target PR is created successfully. <br> The PR address is:<br> ${SourcePRURL}`;
         } catch (error) {
             console.error("An error occurred:", error);
             return error;
@@ -655,23 +654,8 @@
         }
 
 
-        // If we are on the PR details page of pingcap/docs-cn or pingcap/docs, add the buttons
-        if (url.includes('pingcap/docs-cn/pull') || url.includes('pingcap/docs/pull')) {
-            EnsureCreateTransPRButtonOnPR();
-            EnsureScrollToTopButton();
-            EnsureScrollToBottomButton();
-            EnsureCommentButtonOnPR();
-
-
-            const observer = new MutationObserver(() => {
-                EnsureCommentButtonOnPR();
-                EnsureCreateTransPRButtonOnPR()
-            });
-            const targetNode = document.body;
-            const observerOptions = { childList: true, subtree: true };
-            observer.observe(targetNode, observerOptions);
-            // If we are on the PR details page of other repos, add the scroll to top and bottom buttons
-       } else if (url.includes('/pull/')) {
+        // If we are on the PR details page, add the scroll to top and bottom buttons
+        if (url.includes('/pull/')) {
             EnsureScrollToTopButton();
             EnsureScrollToBottomButton();
             EnsureCommentButtonOnPR();
@@ -682,6 +666,16 @@
             const targetNode = document.body;
             const observerOptions = { childList: true, subtree: true };
             observer.observe(targetNode, observerOptions);
+
+            // If we are on the PR details page of pingcap/docs-cn or pingcap/docs, add the CreateTranslationPR button
+            if (url.includes('pingcap/docs-cn/pull') || url.includes('pingcap/docs/pull')) {
+                EnsureCreateTransPRButtonOnPR();
+                const observerCreateTransPR = new MutationObserver(() => {
+                    EnsureCreateTransPRButtonOnPR();
+                });
+                observerCreateTransPR.observe(targetNode, observerOptions);
+            }
+
         }
     }
 
