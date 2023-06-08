@@ -107,7 +107,7 @@
 
                 const sourceTitle = PRData.title;
                 const SourceDescription = PRData.body;
-                const excludeLabels = ["size", "translation", "status", "first-time-contributor", "contribution", "lgtm"];
+                const excludeLabels = ["size", "translation", "status", "first-time-contributor", "contribution", "lgtm", "approved"];
                 const sourceLabels = PRData.labels
                 .filter(label => !excludeLabels.some(excludeLabel => label.name.includes(excludeLabel)))
                 .map(label => label.name);
