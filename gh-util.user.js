@@ -226,7 +226,7 @@
         let newPRDescription = sourceDescription.replace(sourcePRCLA, newPRCLA);
 
         newPRDescription = newPRDescription.replace("This PR is translated from:", "This PR is translated from: " + sourcePRURL);
-        const regexConstructor = new RegExp(".*?\\[tips for choosing the affected versions.*?\\n\\n?", "g");
+        const regexConstructor = new RegExp(".*?\\tips for choosing the affected versions.*?\\n\\n?", "g");
         newPRDescription = newPRDescription.replace(regexConstructor, "");
         console.log(newPRDescription)
 
@@ -372,7 +372,7 @@
                     translationLabel = "translation/from-docs";
                     break;
             }
-            
+
             //1.Get the GitHub login name of the current user
             const myRepoOwner = await GetMyGitHubID();
             //2.Get the source PR information
@@ -542,6 +542,72 @@
         }
     }
 
+    // This function can be used to add a label on a specific PR
+    function AddLabelOnPR(link, label) {
+        // Send the POST request to the GitHub API
+        // TODO: Use Octokit to create requests
+        fetch(link, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${EnsureToken()}`,
+                'Accept': 'application/vnd.github+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'labels': label
+            })
+        }).then((response) => {
+            console.log('response to ', link, response)
+        }).catch((error) => {
+            console.log('error on ', link, error)
+        })
+    }
+
+    // sends /approve directly
+    function EnsureApproveButton() {
+        const MARK = 'approve-button';
+        if (document.querySelector(`button[${ATTR}="${MARK}"]`)) {
+            return;
+        }
+        // create the button
+        var button = document.createElement('button');
+        button.innerHTML = 'A';
+        // set position and style for the button
+        button.style.position = "fixed";
+        button.style.bottom = "90px";
+        button.style.right = "20px";
+        button.style.zIndex = "999"; // always on top
+        button.style.width = "30px";
+        button.className = "js-details-target js-title-edit-button flex-md-order-2 Button--secondary Button--small Button m-0 mr-md-0";
+        // add /approve on click
+        button.addEventListener('click', function () {
+            EnsureToken();
+            // get the pr number
+            const url = window.location.pathname;
+            const urlSplit = url.split("/");
+            const index = urlSplit.indexOf("pull");
+            const pr = urlSplit[index + 1];
+            var repo = GetRepositoryInformation();
+            // Add lgtm label
+            const labelLink = `https://api.github.com/repos/${repo.owner}/${repo.name}/issues/${pr}/labels`;
+            AddLabelOnPR(labelLink, ['lgtm']);
+            console.log('add label on pr');
+            // Leave the comment on this PR
+            var commentLink = `https://api.github.com/repos/${repo.owner}/${repo.name}/issues/${pr}/comments`;
+            LeaveCommentOnPR(commentLink, '/approve');
+        });
+        // add the button to the page
+        document.body.appendChild(button);
+        // show the button only when not at the top
+        window.addEventListener("scroll", function() {
+            if (window.pageYOffset > 0) {
+              button.style.display = "block";
+            } else {
+              button.style.display = "none";
+            }
+          });
+    }
+
     // This function creates a button that scrolls to top of the page
     function EnsureScrollToTopButton() {
         const MARK = 'scroll-to-top-button';
@@ -670,6 +736,7 @@
 
         // If we are on the PR details page, add the scroll to top and bottom buttons
         if (url.includes('/pull/')) {
+            EnsureApproveButton();
             EnsureScrollToTopButton();
             EnsureScrollToBottomButton();
             EnsureCommentButtonOnPR();
