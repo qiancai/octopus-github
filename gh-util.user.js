@@ -305,9 +305,41 @@
         }
     }
 
+    // This function can be used to check if the current user has write permission to the target repository
+    async function CheckRepositoryWritePermission(targetRepoOwner, targetRepoName) {
+        try {
+            const repoUrl = `https://api.github.com/repos/${targetRepoOwner}/${targetRepoName}`;
+            const response = await fetch(repoUrl, {
+                headers: {
+                    'Authorization': `Bearer ${EnsureToken()}`,
+                    'Accept': 'application/vnd.github+json'
+                }
+            });
+
+            if (response.ok) {
+                const repoData = await response.json();
+                // Check if user has write permission (push access)
+                return repoData.permissions && (repoData.permissions.push || repoData.permissions.admin);
+            }
+            return false;
+        } catch (error) {
+            console.error('Failed to check repository permissions:', error);
+            return false;
+        }
+    }
+
     // This function can be used to trigger a workflow in the target repository
     async function TriggerWorkflow(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, sourcePRURL, targetPRURL) {
         try {
+            // Check if user has write permission to the target repository
+            const hasWritePermission = await CheckRepositoryWritePermission(targetRepoOwner, targetRepoName);
+            
+            if (!hasWritePermission) {
+                messageTextElement.innerHTML += `<br>[Error]: You don't have write permission for the target repository ${targetRepoOwner}/${targetRepoName}, so the translation workflow cannot be triggered automatically.<br>`;
+                messageTextElement.innerHTML += `[Info]: If you need to automatically translate the current PR, please contact a contributor who has write permission for the target repository ${targetRepoOwner}/${targetRepoName}.<br>`;
+                return;
+            }
+
             let workflowFileName;
 
             // Determine which workflow to trigger based on the target repository name
@@ -320,7 +352,7 @@
                 return;
             }
 
-            messageTextElement.innerHTML += `[Log]: Triggering workflow ${workflowFileName} in ${targetRepoOwner}/${targetRepoName}...<br>`;
+            messageTextElement.innerHTML += `[Log]: Permission check passed. Triggering workflow ${workflowFileName} in ${targetRepoOwner}/${targetRepoName}...<br>`;
 
             const workflowDispatchUrl = `https://api.github.com/repos/${targetRepoOwner}/${targetRepoName}/actions/workflows/${workflowFileName}/dispatches`;
             
