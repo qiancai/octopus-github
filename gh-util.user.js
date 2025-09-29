@@ -251,7 +251,7 @@
                 console.log(prResponse);
                 const prUrl = prResponse.data.html_url;
                 //console.log(`Your target PR is created successfully. The PR address is: ${prUrl}`);
-                messageTextElement.innerHTML += `<br> Your target PR is created successfully. <br> The PR address is:<br> <a href="${prUrl}" target="_blank">${prUrl}</a>`;
+                messageTextElement.innerHTML += `<br> Your target PR is created successfully. <br> The PR address is:<br> <a href="${prUrl}" target="_blank">${prUrl}</a> <br>`;
                 const urlParts = prUrl.split("/");
                 const prNumber = urlParts[6];
 
@@ -324,6 +324,18 @@
 
             const workflowDispatchUrl = `https://api.github.com/repos/${targetRepoOwner}/${targetRepoName}/actions/workflows/${workflowFileName}/dispatches`;
             
+            const requestBody = {
+                ref: baseBranch,
+                inputs: {
+                    source_pr_url: sourcePRURL,
+                    target_pr_url: targetPRURL,
+                    ai_provider: 'gemini'
+                }
+            };
+
+            console.log(`Triggering workflow with URL: ${workflowDispatchUrl}`);
+            console.log(`Request body:`, requestBody);
+
             const response = await fetch(workflowDispatchUrl, {
                 method: 'POST',
                 headers: {
@@ -331,18 +343,15 @@
                     'Accept': 'application/vnd.github+json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    ref: baseBranch,
-                    inputs: {
-                        source_pr_url: sourcePRURL,
-                        target_pr_url: targetPRURL,
-                        ai_provider: 'gemini'
-                    }
-                })
+                body: JSON.stringify(requestBody)
             });
 
+            console.log(`Response status: ${response.status} ${response.statusText}`);
+            
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorText = await response.text();
+                console.log(`Response error text:`, errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
             }
 
             messageTextElement.innerHTML += `[Log]: Workflow ${workflowFileName} triggered successfully!<br>`;
@@ -369,8 +378,10 @@
             messageBox.style.borderRadius = "6px";
             messageBox.style.boxShadow = "0 0 10px rgba(0, 0, 0, 0.1)";
             messageBox.style.zIndex = "9999";
-            messageBox.style.width = "430px";
-            messageBox.style.height = "300px";
+            messageBox.style.width = "480px";
+            messageBox.style.minHeight = "300px";
+            messageBox.style.maxHeight = "80vh";
+            messageBox.style.overflow = "auto";
             messageBox.style.marginTop = "10px";
             document.body.appendChild(messageBox);
 
