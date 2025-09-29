@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Octopus GitHub
-// @version      0.70
+// @version      0.80
 // @description  A userscript for GitHub
 // @author       Oreo
 // @homepage     https://github.com/Oreoxmt/octopus-github
@@ -358,7 +358,7 @@
             const currentRepoOwner = currentURLSplit[1];
             const currentRepoName = currentURLSplit[2];
             const currentPRNumber = currentURLSplit[4];
-            const targetRepoOwner = "pingcap"
+            const targetRepoOwner = "qiancai"
             let myRepoName, targetRepoName, translationLabel;
             switch (currentRepoName) {
                 case "docs-cn":
@@ -418,7 +418,7 @@
             return;
         }
         // First, find the "table-list-header-toggle" div
-        var toggleDiv = document.querySelector('.table-list-header-toggle.no-wrap');
+        var toggleDiv = document.querySelector('.table-list-header-toggle.float-right');
 
         if (!toggleDiv) {
             return;
@@ -749,7 +749,7 @@
             observer.observe(targetNode, observerOptions);
 
             // If we are on the PR details page of pingcap/docs-cn or pingcap/docs, add the CreateTranslationPR button
-            if (url.includes('pingcap/docs-cn/pull') || url.includes('pingcap/docs/pull')) {
+            if (url.includes('qiancai/docs-cn/pull') || url.includes('qiancai/docs/pull')) {
                 EnsureCreateTransPRButtonOnPR();
                 const observerCreateTransPR = new MutationObserver(() => {
                     EnsureCreateTransPRButtonOnPR();
