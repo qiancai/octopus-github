@@ -357,6 +357,31 @@
             messageTextElement.innerHTML += `[Log]: Workflow ${workflowFileName} triggered successfully!<br>`;
             messageTextElement.innerHTML += `[Log]: Source PR: ${sourcePRURL}<br>`;
             messageTextElement.innerHTML += `[Log]: Target PR: ${targetPRURL}<br>`;
+            
+            // Get the latest workflow run to provide a direct link
+            try {
+                const workflowRunsUrl = `https://api.github.com/repos/${targetRepoOwner}/${targetRepoName}/actions/workflows/${workflowFileName}/runs`;
+                const runsResponse = await fetch(workflowRunsUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${EnsureToken()}`,
+                        'Accept': 'application/vnd.github+json'
+                    }
+                });
+                
+                if (runsResponse.ok) {
+                    const runsData = await runsResponse.json();
+                    if (runsData.workflow_runs && runsData.workflow_runs.length > 0) {
+                        const latestRunId = runsData.workflow_runs[0].id;
+                        const workflowRunUrl = `https://github.com/${targetRepoOwner}/${targetRepoName}/actions/runs/${latestRunId}`;
+                        messageTextElement.innerHTML += `[Log]: Workflow running at: <a href="${workflowRunUrl}" target="_blank">${workflowRunUrl}</a><br>`;
+                        messageTextElement.innerHTML += `[Info]: The translation workflow is running. It might take a few minutes depending on the size of the PR. After the workflow is finished, you could find the translation result in the target PR.<br>`;
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to get workflow run link:', error);
+                // Don't throw error here, just log it as the main workflow trigger was successful
+            }
+            
             console.log(`Workflow ${workflowFileName} triggered successfully in ${targetRepoOwner}/${targetRepoName}`);
 
         } catch (error) {
