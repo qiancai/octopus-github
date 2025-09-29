@@ -356,7 +356,7 @@
                 return;
             }
 
-            messageTextElement.innerHTML += `[Log]: Permission check passed. Triggering workflow ${workflowFileName} in ${targetRepoOwner}/${targetRepoName}...<br>`;
+            messageTextElement.innerHTML += `<br> [Log]: Triggering workflow ${workflowFileName} in ${targetRepoOwner}/${targetRepoName} to translate the current PR...<br>`;
 
             const workflowDispatchUrl = `https://api.github.com/repos/${targetRepoOwner}/${targetRepoName}/actions/workflows/${workflowFileName}/dispatches`;
             
@@ -391,13 +391,13 @@
             }
 
             messageTextElement.innerHTML += `[Log]: Workflow ${workflowFileName} triggered successfully!<br>`;
-            messageTextElement.innerHTML += `[Log]: Source PR: ${sourcePRURL}<br>`;
-            messageTextElement.innerHTML += `[Log]: Target PR: ${targetPRURL}<br>`;
+            //messageTextElement.innerHTML += `[Log]: Source PR: ${sourcePRURL}<br>`;
+            //messageTextElement.innerHTML += `[Log]: Target PR: ${targetPRURL}<br>`;
             
             // Provide direct link to the workflow page where user can check the status
             const workflowPageUrl = `https://github.com/${targetRepoOwner}/${targetRepoName}/actions/workflows/${workflowFileName}`;
             messageTextElement.innerHTML += `[Log]: Check workflow status at: <a href="${workflowPageUrl}" target="_blank">${workflowPageUrl}</a><br>`;
-            messageTextElement.innerHTML += `[Info]: The translation workflow has been triggered. Please check the preceding workflow page to monitor the progress. After the workflow completes successfully, the translation result will be automatically applied to the target PR.<br>`;
+            messageTextElement.innerHTML += `[Info]: To monitor the translation progress, check the preceding workflow page. After the workflow completes successfully, the translation result will be automatically applied to the target PR.<br>`;
             
             console.log(`Workflow ${workflowFileName} triggered successfully in ${targetRepoOwner}/${targetRepoName}`);
 
