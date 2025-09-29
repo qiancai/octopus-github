@@ -305,6 +305,47 @@
         }
     }
 
+    // This function can be used to trigger a workflow in the target repository
+    async function TriggerWorkflow(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, sourcePRURL, targetPRURL) {
+        try {
+            let workflowFileName;
+
+            // Determine which workflow to trigger based on the target repository name
+            if (targetRepoName === "docs") {
+                workflowFileName = "sync-docs-cn-to-en.yml";
+            } else if (targetRepoName === "docs-cn") {
+                workflowFileName = "sync-docs-en-to-cn.yml";
+            } else {
+                console.log(`No workflow configured for repository: ${targetRepoName}`);
+                return;
+            }
+
+            messageTextElement.innerHTML += `[Log]: Triggering workflow ${workflowFileName} in ${targetRepoOwner}/${targetRepoName}...<br>`;
+
+            await octokit.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
+                owner: targetRepoOwner,
+                repo: targetRepoName,
+                workflow_id: workflowFileName,
+                ref: baseBranch,
+                inputs: {
+                    source_pr_url: sourcePRURL,
+                    target_pr_url: targetPRURL,
+                    ai_provider: 'gemini'
+                },
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+            });
+
+            messageTextElement.innerHTML += `[Log]: Workflow ${workflowFileName} triggered successfully!<br>`;
+            messageTextElement.innerHTML += `[Log]: Source PR: ${sourcePRURL}<br>`;
+            messageTextElement.innerHTML += `[Log]: Target PR: ${targetPRURL}<br>`;
+            console.log(`Workflow ${workflowFileName} triggered successfully in ${targetRepoOwner}/${targetRepoName}`);
+
+        } catch (error) {
+            messageTextElement.innerHTML += `<br>[Error]: Failed to trigger workflow: ${error.message}<br>`;
+            console.error(`Failed to trigger workflow:`, error);
+        }
+    }
+
     async function CreateTransPR() {
         try {
             const messageBox = document.createElement("div");
@@ -401,6 +442,9 @@
                 //7. Delete the temporary temp.md file
                 const CommitMessage2 = "Delete temp.md";
                 await DeleteFileInBranch(octokit, myRepoOwner, myRepoName, newBranchName, filePath, CommitMessage2);
+                //8. Trigger the workflow in the target repository
+                const sourcePRURL = `https://github.com/${currentRepoOwner}/${currentRepoName}/pull/${currentPRNumber}`;
+                await TriggerWorkflow(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, sourcePRURL, targetPRURL);
             }
             else {
                 messageTextElement.innerHTML += `<br>[Error]: The current PR already has the <b>translation/done</b> label, which means that there is already a translation PR for it. Please check if you still need to create another translation PR. If yes, you need to change the <b>translation/done</b> label to <b>translation/doing</b> first.<br>`;
