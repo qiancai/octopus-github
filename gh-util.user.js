@@ -322,18 +322,28 @@
 
             messageTextElement.innerHTML += `[Log]: Triggering workflow ${workflowFileName} in ${targetRepoOwner}/${targetRepoName}...<br>`;
 
-            await octokit.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
-                owner: targetRepoOwner,
-                repo: targetRepoName,
-                workflow_id: workflowFileName,
-                ref: baseBranch,
-                inputs: {
-                    source_pr_url: sourcePRURL,
-                    target_pr_url: targetPRURL,
-                    ai_provider: 'gemini'
+            const workflowDispatchUrl = `https://api.github.com/repos/${targetRepoOwner}/${targetRepoName}/actions/workflows/${workflowFileName}/dispatches`;
+            
+            const response = await fetch(workflowDispatchUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${EnsureToken()}`,
+                    'Accept': 'application/vnd.github+json',
+                    'Content-Type': 'application/json'
                 },
-                headers: {'Authorization': `Bearer ${EnsureToken()}`}
+                body: JSON.stringify({
+                    ref: baseBranch,
+                    inputs: {
+                        source_pr_url: sourcePRURL,
+                        target_pr_url: targetPRURL,
+                        ai_provider: 'gemini'
+                    }
+                })
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
 
             messageTextElement.innerHTML += `[Log]: Workflow ${workflowFileName} triggered successfully!<br>`;
             messageTextElement.innerHTML += `[Log]: Source PR: ${sourcePRURL}<br>`;
