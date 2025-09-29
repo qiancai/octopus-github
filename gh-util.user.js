@@ -96,6 +96,7 @@
                 owner: RepoOwner,
                 repo: RepoName,
                 number: PRNumber,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
             })
                 .then(response => {
                 const PRData = response.data;
@@ -126,7 +127,8 @@
             const upstreamRef = await octokit.gitdata.getReference({
                 owner: targetRepoOwner,
                 repo: targetRepoName,
-                ref: `heads/${baseBranch}`
+                ref: `heads/${baseBranch}`,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
             });
 
             const upstreamSHA = upstreamRef.data.object.sha;
@@ -164,7 +166,8 @@
             const baseRef = await octokit.gitdata.getReference({
                 owner: repoOwner,
                 repo: repoName,
-                ref: `heads/${baseBranch}`
+                ref: `heads/${baseBranch}`,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
             });
 
             const baseSha = baseRef.data.object.sha;
@@ -285,7 +288,8 @@
                 owner: repoOwner,
                 repo: repoName,
                 path: filePath,
-                ref: branchName
+                ref: branchName,
+                headers: {'Authorization': `Bearer ${EnsureToken()}`}
             });
 
             await octokit.repos.deleteFile({
@@ -393,7 +397,7 @@
             // Provide direct link to the workflow page where user can check the status
             const workflowPageUrl = `https://github.com/${targetRepoOwner}/${targetRepoName}/actions/workflows/${workflowFileName}`;
             messageTextElement.innerHTML += `[Log]: Check workflow status at: <a href="${workflowPageUrl}" target="_blank">${workflowPageUrl}</a><br>`;
-            messageTextElement.innerHTML += `[Info]: The translation workflow is running. It might take a few minutes depending on the size of the PR. After the workflow is finished, you could find the translation result in the target PR.<br>`;
+            messageTextElement.innerHTML += `[Info]: The translation workflow has been triggered. Please check the preceding workflow page to monitor the progress. After the workflow completes successfully, the translation result will be automatically applied to the target PR.<br>`;
             
             console.log(`Workflow ${workflowFileName} triggered successfully in ${targetRepoOwner}/${targetRepoName}`);
 
