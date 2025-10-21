@@ -19,6 +19,7 @@
 
     const ATTR = 'octopus-github-util-mark'
     const STORAGEKEY = 'octopus-github-util:token'
+    const TARGET_REPO_OWNER = 'qiancai'
 
     function GetRepositoryInformation() {
         // Get the pathname of the current page
@@ -462,7 +463,7 @@
             const currentRepoOwner = currentURLSplit[1];
             const currentRepoName = currentURLSplit[2];
             const currentPRNumber = currentURLSplit[4];
-            const targetRepoOwner = "qiancai"
+            const targetRepoOwner = TARGET_REPO_OWNER
             let myRepoName, targetRepoName, translationLabel;
             switch (currentRepoName) {
                 case "docs-cn":
@@ -943,7 +944,7 @@
             observer.observe(targetNode, observerOptions);
 
             // If we are on the PR details page of pingcap/docs-cn or pingcap/docs, add the CreateTranslationPR button
-            if (url.includes('qiancai/docs-cn/pull') || url.includes('qiancai/docs/pull')) {
+            if (url.includes(`${TARGET_REPO_OWNER}/docs-cn/pull`) || url.includes(`${TARGET_REPO_OWNER}/docs/pull`)) {
                 EnsureCreateTransPRButtonOnPR();
                 const observerCreateTransPR = new MutationObserver(() => {
                     EnsureCreateTransPRButtonOnPR();
