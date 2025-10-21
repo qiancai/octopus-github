@@ -407,7 +407,7 @@
         }
     }
 
-    async function CreateTransPR() {
+    async function CreateTransPR(triggerWorkflow = true) {
         try {
             const messageBox = document.createElement("div");
             messageBox.style.position = "fixed";
@@ -505,9 +505,13 @@
                 //7. Delete the temporary temp.md file
                 const CommitMessage2 = "Delete temp.md";
                 await DeleteFileInBranch(octokit, myRepoOwner, myRepoName, newBranchName, filePath, CommitMessage2);
-                //8. Trigger the workflow in the target repository
-                const sourcePRURL = `https://github.com/${currentRepoOwner}/${currentRepoName}/pull/${currentPRNumber}`;
-                await TriggerWorkflow(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, sourcePRURL, targetPRURL);
+                //8. Trigger the workflow in the target repository (only if triggerWorkflow is true)
+                if (triggerWorkflow) {
+                    const sourcePRURL = `https://github.com/${currentRepoOwner}/${currentRepoName}/pull/${currentPRNumber}`;
+                    await TriggerWorkflow(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, sourcePRURL, targetPRURL);
+                } else {
+                    messageTextElement.innerHTML += `<br>[Info]: Translation PR created successfully without triggering the workflow.<br>`;
+                }
             }
             else {
                 messageTextElement.innerHTML += `<br>[Error]: The current PR already has the <b>translation/done</b> label, which means that there is already a translation PR for it. Please check if you still need to create another translation PR. If yes, you need to change the <b>translation/done</b> label to <b>translation/doing</b> first.<br>`;
@@ -796,7 +800,7 @@
         const MARK = 'create-trans-pr-button';
 
         // Check if the button already exists
-        if (document.querySelector(`button[${ATTR}="${MARK}"]`)) {
+        if (document.querySelector(`div[${ATTR}="${MARK}"]`)) {
           return;
         }
 
@@ -807,22 +811,105 @@
           return;
         }
 
-        // Create a button element
+        // Create a container for the dropdown
+        var dropdownContainer = document.createElement("div");
+        dropdownContainer.setAttribute("class", "flex-md-order-2 position-relative");
+        dropdownContainer.setAttribute(ATTR, MARK);
+        dropdownContainer.style.display = "inline-block";
+
+        // Create the main button
         var button = document.createElement("button");
-        button.innerHTML = "Create Translation PR";
+        button.innerHTML = 'Create Translation PR <span style="margin-left: 4px;">▼</span>';
         button.setAttribute(
           "class",
-          "flex-md-order-2 Button--secondary Button--small Button m-0 mr-md-0"
+          "Button--secondary Button--small Button m-0"
         );
-        button.setAttribute(ATTR, MARK);
-        headerActions.appendChild(button);
+        button.style.cursor = "pointer";
+        
+        // Create the dropdown menu
+        var dropdownMenu = document.createElement("div");
+        dropdownMenu.style.display = "none";
+        dropdownMenu.style.position = "absolute";
+        dropdownMenu.style.right = "0";
+        dropdownMenu.style.top = "100%";
+        dropdownMenu.style.marginTop = "4px";
+        dropdownMenu.style.backgroundColor = "white";
+        dropdownMenu.style.border = "1px solid #d0d7de";
+        dropdownMenu.style.borderRadius = "6px";
+        dropdownMenu.style.boxShadow = "0 8px 24px rgba(140,149,159,0.2)";
+        dropdownMenu.style.zIndex = "1000";
+        dropdownMenu.style.minWidth = "200px";
+        dropdownMenu.style.padding = "4px 0";
 
-        // Add event listener to the button
-        button.addEventListener("click", function () {
-          // Call the function to create translation PR
-          EnsureToken();
-          CreateTransPR();
+        // Create first option: Create Synced Translation PR
+        var syncedOption = document.createElement("div");
+        syncedOption.innerHTML = "Create Synced Translation PR";
+        syncedOption.style.padding = "8px 16px";
+        syncedOption.style.cursor = "pointer";
+        syncedOption.style.fontSize = "14px";
+        syncedOption.style.color = "#24292e";
+        syncedOption.style.whiteSpace = "nowrap";
+        syncedOption.addEventListener("mouseenter", function() {
+          syncedOption.style.backgroundColor = "#f6f8fa";
         });
+        syncedOption.addEventListener("mouseleave", function() {
+          syncedOption.style.backgroundColor = "white";
+        });
+        syncedOption.addEventListener("click", function(e) {
+          e.stopPropagation();
+          dropdownMenu.style.display = "none";
+          EnsureToken();
+          CreateTransPR(true); // Create PR and trigger workflow
+        });
+
+        // Create second option: Create Empty Translation PR
+        var emptyOption = document.createElement("div");
+        emptyOption.innerHTML = "Create Empty Translation PR";
+        emptyOption.style.padding = "8px 16px";
+        emptyOption.style.cursor = "pointer";
+        emptyOption.style.fontSize = "14px";
+        emptyOption.style.color = "#24292e";
+        emptyOption.style.whiteSpace = "nowrap";
+        emptyOption.addEventListener("mouseenter", function() {
+          emptyOption.style.backgroundColor = "#f6f8fa";
+        });
+        emptyOption.addEventListener("mouseleave", function() {
+          emptyOption.style.backgroundColor = "white";
+        });
+        emptyOption.addEventListener("click", function(e) {
+          e.stopPropagation();
+          dropdownMenu.style.display = "none";
+          EnsureToken();
+          CreateTransPR(false); // Create PR without triggering workflow
+        });
+
+        // Append options to dropdown menu
+        dropdownMenu.appendChild(syncedOption);
+        dropdownMenu.appendChild(emptyOption);
+
+        // Toggle dropdown menu on button click
+        button.addEventListener("click", function(e) {
+          e.stopPropagation();
+          if (dropdownMenu.style.display === "none") {
+            dropdownMenu.style.display = "block";
+          } else {
+            dropdownMenu.style.display = "none";
+          }
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener("click", function(e) {
+          if (!dropdownContainer.contains(e.target)) {
+            dropdownMenu.style.display = "none";
+          }
+        });
+
+        // Append button and dropdown to container
+        dropdownContainer.appendChild(button);
+        dropdownContainer.appendChild(dropdownMenu);
+
+        // Append container to header actions
+        headerActions.appendChild(dropdownContainer);
       }
 
     function Init() {
