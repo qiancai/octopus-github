@@ -511,7 +511,7 @@
                     const sourcePRURL = `https://github.com/${currentRepoOwner}/${currentRepoName}/pull/${currentPRNumber}`;
                     await TriggerWorkflow(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, sourcePRURL, targetPRURL);
                 } else {
-                    messageTextElement.innerHTML += `<br>[Info]: Translation PR created successfully without triggering the workflow.<br>`;
+                    messageTextElement.innerHTML += `<br>[Info]: Translation PR created successfully without triggering the translation workflow.<br>`;
                 }
             }
             else {
