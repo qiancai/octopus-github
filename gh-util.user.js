@@ -19,7 +19,7 @@
 
     const ATTR = 'octopus-github-util-mark'
     const STORAGEKEY = 'octopus-github-util:token'
-    const TARGET_REPO_OWNER = 'qiancai'
+    const TARGET_REPO_OWNER = 'pingcap'
 
     function GetRepositoryInformation() {
         // Get the pathname of the current page
@@ -333,15 +333,15 @@
         }
     }
 
-    // This function can be used to trigger a workflow in the target repository
+    // This function can be used to trigger a workflow in the forked repository
     async function TriggerWorkflow(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, sourcePRURL, targetPRURL) {
         try {
-            // Check if user has write permission to the target repository
+            // Check if user has write permission to the forked repository
             const hasWritePermission = await CheckRepositoryWritePermission(targetRepoOwner, targetRepoName);
-            
+
             if (!hasWritePermission) {
-                messageTextElement.innerHTML += `<br>[Error]: You don't have write permission for the target repository ${targetRepoOwner}/${targetRepoName}, so the translation workflow cannot be triggered automatically.<br>`;
-                messageTextElement.innerHTML += `[Info]: If you need to automatically translate the current PR, please contact a contributor who has write permission for the target repository ${targetRepoOwner}/${targetRepoName}.<br>`;
+                messageTextElement.innerHTML += `<br>[Error]: You don't have write permission for the repository ${targetRepoOwner}/${targetRepoName}, so the translation workflow cannot be triggered automatically.<br>`;
+                messageTextElement.innerHTML += `[Info]: Please check your repository permissions and ensure the workflow file exists in that repository.<br>`;
                 return;
             }
 
@@ -360,7 +360,7 @@
             messageTextElement.innerHTML += `<br> [Log]: Triggering workflow ${workflowFileName} in ${targetRepoOwner}/${targetRepoName} to translate the current PR...<br>`;
 
             const workflowDispatchUrl = `https://api.github.com/repos/${targetRepoOwner}/${targetRepoName}/actions/workflows/${workflowFileName}/dispatches`;
-            
+
             const requestBody = {
                 ref: baseBranch,
                 inputs: {
@@ -384,7 +384,7 @@
             });
 
             console.log(`Response status: ${response.status} ${response.statusText}`);
-            
+
             if (!response.ok) {
                 const errorText = await response.text();
                 console.log(`Response error text:`, errorText);
@@ -394,12 +394,12 @@
             messageTextElement.innerHTML += `[Log]: Workflow ${workflowFileName} triggered successfully!<br>`;
             //messageTextElement.innerHTML += `[Log]: Source PR: ${sourcePRURL}<br>`;
             //messageTextElement.innerHTML += `[Log]: Target PR: ${targetPRURL}<br>`;
-            
+
             // Provide direct link to the workflow page where user can check the status
             const workflowPageUrl = `https://github.com/${targetRepoOwner}/${targetRepoName}/actions/workflows/${workflowFileName}`;
             messageTextElement.innerHTML += `[Log]: Check workflow status at: <a href="${workflowPageUrl}" target="_blank">${workflowPageUrl}</a><br>`;
             messageTextElement.innerHTML += `[Info]: To monitor the translation progress, check the preceding workflow page. After the workflow completes successfully, the translation result will be automatically applied to the target PR.<br>`;
-            
+
             console.log(`Workflow ${workflowFileName} triggered successfully in ${targetRepoOwner}/${targetRepoName}`);
 
         } catch (error) {
@@ -506,12 +506,12 @@
                 //7. Delete the temporary temp.md file
                 const CommitMessage2 = "Delete temp.md";
                 await DeleteFileInBranch(octokit, myRepoOwner, myRepoName, newBranchName, filePath, CommitMessage2);
-                //8. Trigger the workflow in the target repository (only if triggerWorkflow is true)
+                //8. Trigger the workflow in the forked repository (only if triggerWorkflow is true)
                 if (triggerWorkflow) {
                     const sourcePRURL = `https://github.com/${currentRepoOwner}/${currentRepoName}/pull/${currentPRNumber}`;
-                    await TriggerWorkflow(octokit, messageTextElement, targetRepoOwner, targetRepoName, baseBranch, sourcePRURL, targetPRURL);
+                    await TriggerWorkflow(octokit, messageTextElement, myRepoOwner, myRepoName, baseBranch, sourcePRURL, targetPRURL);
                 } else {
-                    messageTextElement.innerHTML += `<br>[Info]: Translation PR created successfully without triggering the translation workflow.<br>`;
+                    messageTextElement.innerHTML += `<br>[Info]: Translation PR created successfully without triggering the workflow.<br>`;
                 }
             }
             else {
@@ -826,7 +826,7 @@
           "Button--secondary Button--small Button m-0"
         );
         button.style.cursor = "pointer";
-        
+
         // Create the dropdown menu
         var dropdownMenu = document.createElement("div");
         dropdownMenu.style.display = "none";
