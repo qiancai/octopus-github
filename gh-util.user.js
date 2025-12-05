@@ -349,9 +349,9 @@
 
             // Determine which workflow to trigger based on the target repository name
             if (targetRepoName === "docs") {
-                workflowFileName = "sync-docs-cn-to-en.yml";
+                workflowFileName = "sync-doc-pr-zh-to-en.yml";
             } else if (targetRepoName === "docs-cn") {
-                workflowFileName = "sync-docs-en-to-cn.yml";
+                workflowFileName = "sync-doc-pr-en-to-zh.yml";
             } else {
                 console.log(`No workflow configured for repository: ${targetRepoName}`);
                 return;
@@ -388,6 +388,18 @@
             if (!response.ok) {
                 const errorText = await response.text();
                 console.log(`Response error text:`, errorText);
+                
+                // Provide helpful error message for common issues
+                if (response.status === 422) {
+                    messageTextElement.innerHTML += `<br>[Error]: Failed to trigger workflow in ${targetRepoOwner}/${targetRepoName}.<br>`;
+                    messageTextElement.innerHTML += `[Info]: The workflow file <code>${workflowFileName}</code> may not exist in the repository or it doesn't have the <code>workflow_dispatch</code> trigger configured.<br>`;
+                    messageTextElement.innerHTML += `[Info]: Please ensure:<br>`;
+                    messageTextElement.innerHTML += `1. The repository <a href="https://github.com/${targetRepoOwner}/${targetRepoName}" target="_blank">${targetRepoOwner}/${targetRepoName}</a> has the workflow file <code>.github/workflows/${workflowFileName}</code><br>`;
+                    messageTextElement.innerHTML += `2. The workflow file contains <code>workflow_dispatch:</code> in the <code>on:</code> section<br>`;
+                    messageTextElement.innerHTML += `3. GitHub Actions is enabled in the repository settings<br>`;
+                    return;
+                }
+                
                 throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
             }
 
