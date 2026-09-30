@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Octopus GitHub
-// @version      0.94
+// @version      0.95
 // @description  A userscript for GitHub
 // @author       Oreo
 // @homepage     https://github.com/Oreoxmt/octopus-github
@@ -686,16 +686,17 @@
 
     function EnsureFileLink(titleLink) {
         const MARK = 'file-link-span'
-        if (titleLink.nextElementSibling?.getAttribute(ATTR) === MARK) {
+        if (titleLink.previousElementSibling?.getAttribute(ATTR) === MARK) {
             return;
+        }
+        if (titleLink.nextElementSibling?.getAttribute(ATTR) === MARK) {
+            titleLink.nextElementSibling.remove();
         }
 
         const fileLinkContainer = document.createElement('span');
         fileLinkContainer.setAttribute(ATTR, MARK);
         fileLinkContainer.style.fontSize = '0.8em';
         fileLinkContainer.style.fontWeight = 'normal';
-        fileLinkContainer.append(' · ');
-
         const fileLink = document.createElement('a');
         const fileURL = new URL(titleLink.href);
         fileURL.pathname = `${fileURL.pathname.replace(/\/$/, '')}/files`;
@@ -705,7 +706,8 @@
         fileLink.className = 'Link--muted';
         fileLink.textContent = 'Files';
         fileLinkContainer.appendChild(fileLink);
-        titleLink.insertAdjacentElement('afterend', fileLinkContainer);
+        fileLinkContainer.append(' · ');
+        titleLink.insertAdjacentElement('beforebegin', fileLinkContainer);
     }
 
     function EnsureFileLinks() {
