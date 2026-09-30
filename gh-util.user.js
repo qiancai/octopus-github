@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Octopus GitHub
-// @version      0.93
+// @version      0.94
 // @description  A userscript for GitHub
 // @author       Oreo
 // @homepage     https://github.com/Oreoxmt/octopus-github
@@ -684,39 +684,40 @@
         });
     }
 
-    function EnsureFileLink(issueElement) {
+    function EnsureFileLink(titleLink) {
         const MARK = 'file-link-span'
-
-        if (issueElement.querySelector(`span[${ATTR}="${MARK}"]`)) {
-            return; // Already added
+        if (titleLink.nextElementSibling?.getAttribute(ATTR) === MARK) {
+            return;
         }
 
-        var issueId = issueElement.getAttribute("id")
-        var originalLinkElement = document.getElementById(issueId + "_link")
-        if (!originalLinkElement) {
-            return; // Element is not ready
-        }
+        const fileLinkContainer = document.createElement('span');
+        fileLinkContainer.setAttribute(ATTR, MARK);
+        fileLinkContainer.style.fontSize = '0.8em';
+        fileLinkContainer.style.fontWeight = 'normal';
+        fileLinkContainer.append(' · ');
 
-        var originalLink = originalLinkElement.getAttribute("href")
-        var newLink = originalLink + "/files"
+        const fileLink = document.createElement('a');
+        const fileURL = new URL(titleLink.href);
+        fileURL.pathname = `${fileURL.pathname.replace(/\/$/, '')}/files`;
+        fileURL.search = '';
+        fileURL.hash = '';
+        fileLink.href = fileURL.href;
+        fileLink.className = 'Link--muted';
+        fileLink.textContent = 'Files';
+        fileLinkContainer.appendChild(fileLink);
+        titleLink.insertAdjacentElement('afterend', fileLinkContainer);
+    }
 
-        var openedByElement = issueElement.querySelectorAll('span[class="opened-by"]');
-        if (openedByElement.length == 1) {
-            var openedBy = openedByElement[0];
-            var linkSpanElement = document.createElement('span');
-            linkSpanElement.setAttribute('class', 'd-inline-block mr-1 custom')
-            linkSpanElement.setAttribute(ATTR, MARK)
-            var dotSpanElement = document.createElement('span');
-            dotSpanElement.innerHTML = ' • ';
-            dotSpanElement.setAttribute('class', 'd-inline-block mr-1 custom')
-            var linkElement = document.createElement('a')
-            linkElement.setAttribute('href', newLink)
-            linkElement.setAttribute('class', 'Link--muted')
-            linkElement.innerHTML = "Files"
-            linkSpanElement.appendChild(linkElement)
-            openedBy.insertAdjacentElement('beforebegin', linkSpanElement)
-            openedBy.insertAdjacentElement('beforebegin', dotSpanElement);
-        }
+    function EnsureFileLinks() {
+        const repo = GetRepositoryInformation();
+        const prPath = /^\/([^/]+)\/([^/]+)\/pull\/\d+\/?$/;
+        document.querySelectorAll('h2 a[href], h3 a[href], h4 a[href], a[id^="issue_"][id$="_link"]').forEach((link) => {
+            const url = new URL(link.href);
+            const match = url.pathname.match(prPath);
+            if (url.origin === window.location.origin && match?.[1] === repo.owner && match[2] === repo.name) {
+                EnsureFileLink(link);
+            }
+        });
     }
 
     // This function can be used to add a label on a specific PR
@@ -1074,15 +1075,11 @@
 
         // If we are on the PR list page, add the comment button and file link
         if (IsPRListPage(pathname)) {
-            document.querySelectorAll('div[id^="issue_"]').forEach((element) => {
-                EnsureFileLink(element);
-            })
+            EnsureFileLinks();
             EnsureCommentButton();
 
             EnsureObserver(observerState.pullList, document, observerOptions, () => {
-                document.querySelectorAll('div[id^="issue_"]').forEach((element) => {
-                    EnsureFileLink(element);
-                })
+                EnsureFileLinks();
                 EnsureCommentButton();
             });
         } else {
