@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Octopus GitHub
-// @version      0.95
+// @version      0.96
 // @description  A userscript for GitHub
 // @author       Oreo
 // @homepage     https://github.com/Oreoxmt/octopus-github
@@ -588,52 +588,90 @@
         }
     }
 
-    // TODO: Use toggle instead of button, and add more features to the toggle, e.g., editing tokens.
+    function GetSelectedPRNumbers() {
+        const repo = GetRepositoryInformation();
+        const selectedPRs = new Set();
+        const checkboxSelector = 'input[type="checkbox"], [role="checkbox"]';
+        const titleSelector = 'h2 a[href], h3 a[href], h4 a[href], a[id^="issue_"][id$="_link"]';
+
+        document.querySelectorAll('input[type="checkbox"]:checked, [role="checkbox"][aria-checked="true"]').forEach((checkbox) => {
+            if (checkbox.matches('input[data-check-all-item]') && /^\d+$/.test(checkbox.value)) {
+                selectedPRs.add(checkbox.value);
+                return;
+            }
+
+            for (let container = checkbox.parentElement; container && container !== document.body; container = container.parentElement) {
+                const prNumbers = Array.from(container.querySelectorAll(titleSelector), (link) => GetPRNumberFromLink(link, repo)).filter(Boolean);
+                if (prNumbers.length === 1 && container.querySelectorAll(checkboxSelector).length === 1) {
+                    selectedPRs.add(prNumbers[0]);
+                    break;
+                }
+                if (prNumbers.length > 1) {
+                    break;
+                }
+            }
+        });
+        return [...selectedPRs];
+    }
+
+    function GetPullListTabGroup() {
+        const main = document.querySelector('main');
+        if (!main) {
+            return null;
+        }
+        const controls = Array.from(main.querySelectorAll('a, button')).filter((control) => {
+            return !control.href || new URL(control.href).pathname === window.location.pathname;
+        });
+        const closedTab = controls.find((control) => control.textContent.trim().startsWith('Closed'));
+        if (!closedTab) {
+            return null;
+        }
+        for (let group = closedTab.parentElement; group && group !== main; group = group.parentElement) {
+            if (controls.some((control) => control.textContent.trim().startsWith('Open') && group.contains(control))) {
+                return group;
+            }
+        }
+        return null;
+    }
+
     function EnsureCommentButton() {
         const MARK = 'comment-button'
         if (document.querySelector(`button[${ATTR}="${MARK}"]`)) {
             return;
         }
-        // First, find the "table-list-header-toggle" div
-        var toggleDiv = document.querySelector('.table-list-header-toggle.float-right');
-
-        if (!toggleDiv) {
+        const legacyToolbar = document.querySelector('.table-list-header-toggle.float-right');
+        const tabGroup = legacyToolbar ? null : GetPullListTabGroup();
+        if (!legacyToolbar && !tabGroup) {
             return;
         }
-        // Next, create a button element and add it to the page
-        var button = document.createElement('button');
-        button.innerHTML = 'Comment';
-        button.setAttribute('class', 'btn btn-sm js-details-target d-inline-block float-left float-none m-0 mr-md-0 js-title-edit-button');
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'Comment';
+        button.className = 'btn btn-sm';
         button.setAttribute(ATTR, MARK);
-        toggleDiv.appendChild(button);
+        if (legacyToolbar) {
+            legacyToolbar.appendChild(button);
+        } else {
+            button.style.margin = '0 8px';
+            button.style.alignSelf = 'center';
+            tabGroup.insertAdjacentElement('afterend', button);
+        }
 
-        // Next, add an event listener to the button to listen for clicks
         button.addEventListener('click', function () {
-            EnsureToken();
-
-            // Get a list of all the checkboxes on the page (these are used to select PRs)
-            var checkboxes = document.querySelectorAll('input[type=checkbox][data-check-all-item]');
-
-            // Iterate through the checkboxes and get the ones that are checked
-            var selectedPRs = [];
-
-            checkboxes.forEach(function (checkbox) {
-                if (checkbox.checked) {
-                    selectedPRs.push(checkbox.value);
-                }
-            })
-
-            // Prompt the user for a comment to leave on the selected PRs
-            var comment = prompt('Enter a comment to leave on the selected PRs:');
+            const selectedPRs = GetSelectedPRNumbers();
+            if (selectedPRs.length === 0) {
+                alert('Select at least one PR first.');
+                return;
+            }
+            const comment = prompt(`Enter a comment to leave on ${selectedPRs.length} selected PR(s):`);
             if (!comment) {
                 return;
             }
-            var repo = GetRepositoryInformation();
-
-            // Leave the comment on each selected PR
-            selectedPRs.forEach(function (pr) {
-                var commentLink = `https://api.github.com/repos/${repo.owner}/${repo.name}/issues/${pr}/comments`;
-                // Leave a comment on the PR
+            EnsureToken();
+            const repo = GetRepositoryInformation();
+            selectedPRs.forEach((pr) => {
+                const commentLink = `https://api.github.com/repos/${repo.owner}/${repo.name}/issues/${pr}/comments`;
                 LeaveCommentOnPR(commentLink, comment);
             });
         });
@@ -710,13 +748,17 @@
         titleLink.insertAdjacentElement('beforebegin', fileLinkContainer);
     }
 
+    function GetPRNumberFromLink(link, repo) {
+        const prPath = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)\/?$/;
+        const url = new URL(link.href);
+        const match = url.pathname.match(prPath);
+        return url.origin === window.location.origin && match?.[1] === repo.owner && match[2] === repo.name ? match[3] : null;
+    }
+
     function EnsureFileLinks() {
         const repo = GetRepositoryInformation();
-        const prPath = /^\/([^/]+)\/([^/]+)\/pull\/\d+\/?$/;
         document.querySelectorAll('h2 a[href], h3 a[href], h4 a[href], a[id^="issue_"][id$="_link"]').forEach((link) => {
-            const url = new URL(link.href);
-            const match = url.pathname.match(prPath);
-            if (url.origin === window.location.origin && match?.[1] === repo.owner && match[2] === repo.name) {
+            if (GetPRNumberFromLink(link, repo)) {
                 EnsureFileLink(link);
             }
         });
