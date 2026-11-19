@@ -703,7 +703,7 @@
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.textContent = 'O';
+        button.textContent = 'Open files';
         button.className = 'btn btn-sm';
         button.setAttribute(ATTR, 'open-files-button');
         button.style.padding = '5px 8px';
