@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Octopus GitHub
-// @version      0.96
+// @version      0.97
 // @description  A userscript for GitHub
 // @author       Oreo
 // @homepage     https://github.com/Oreoxmt/octopus-github
@@ -10,6 +10,7 @@
 // @match        https://github.com/*/pulls*
 // @match        https://github.com/*/pull/*
 // @run-at       document-start
+// @grant        GM_openInTab
 // @require      https://cdnjs.cloudflare.com/ajax/libs/rest.js/15.2.6/octokit-rest.js
 // ==/UserScript==
 
@@ -677,6 +678,59 @@
         });
     }
 
+    function UpdateOpenFilesButton() {
+        const button = document.querySelector(`button[${ATTR}="open-files-button"]`);
+        if (!button || !IsPRListPage()) {
+            return;
+        }
+        const selectedPRs = GetSelectedPRNumbers();
+        const label = selectedPRs.length > 0
+            ? `Open selected PR files (${selectedPRs.length})`
+            : 'Open all PR files';
+        button.title = label;
+        button.setAttribute('aria-label', label);
+    }
+
+    function EnsureOpenFilesButton() {
+        const commentButton = document.querySelector(`button[${ATTR}="comment-button"]`);
+        if (!commentButton) {
+            return;
+        }
+        if (document.querySelector(`button[${ATTR}="open-files-button"]`)) {
+            UpdateOpenFilesButton();
+            return;
+        }
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'O';
+        button.className = 'btn btn-sm';
+        button.setAttribute(ATTR, 'open-files-button');
+        button.style.padding = '5px 8px';
+        button.style.marginRight = '8px';
+        button.style.flexShrink = '0';
+        button.style.alignSelf = 'center';
+        commentButton.insertAdjacentElement('afterend', button);
+        button.addEventListener('click', () => {
+            const repo = GetRepositoryInformation();
+            const selectedPRs = GetSelectedPRNumbers();
+            const prNumbers = selectedPRs.length > 0 ? selectedPRs : [...new Set(
+                Array.from(document.querySelectorAll('h2 a[href], h3 a[href], h4 a[href], a[id^="issue_"][id$="_link"]'),
+                    (link) => GetPRNumberFromLink(link, repo)).filter(Boolean)
+            )];
+            prNumbers.forEach((pr) => {
+                const url = `${window.location.origin}/${repo.owner}/${repo.name}/pull/${pr}/files`;
+                // Use the userscript API to open multiple background tabs without popup blocking.
+                if (typeof GM_openInTab === 'function') {
+                    GM_openInTab(url, { active: false, insert: true, setParent: true });
+                } else {
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                }
+            });
+        });
+        UpdateOpenFilesButton();
+    }
+
     function EnsureCommentButtonOnPR() {
         const MARK = "comment-button-pr";
         if (document.querySelector(`button[${ATTR}="${MARK}"]`)) {
@@ -1121,10 +1175,13 @@
         if (IsPRListPage(pathname)) {
             EnsureFileLinks();
             EnsureCommentButton();
+            EnsureOpenFilesButton();
 
-            EnsureObserver(observerState.pullList, document, observerOptions, () => {
+            const pullListObserverOptions = { ...observerOptions, attributes: true, attributeFilter: ['aria-checked', 'checked'] };
+            EnsureObserver(observerState.pullList, document, pullListObserverOptions, () => {
                 EnsureFileLinks();
                 EnsureCommentButton();
+                EnsureOpenFilesButton();
             });
         } else {
             DisconnectObserver(observerState.pullList);
@@ -1170,6 +1227,7 @@
     }
 
     InitWhenReady();
+    document.addEventListener('change', UpdateOpenFilesButton);
     document.addEventListener('turbo:load', InitWhenReady);
     document.addEventListener('pjax:end', InitWhenReady);
 })();
